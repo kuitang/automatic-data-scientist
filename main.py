@@ -292,9 +292,9 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
         logger.error(f"Analysis failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Cleanup
+        # Do not cleanup - preserve work_dir for debugging
         if work_dir.exists():
-            shutil.rmtree(work_dir)
+            logger.info(f"Preserving work directory: {work_dir}")
 
 
 async def download_and_validate_file(url: str, work_dir: Path) -> Path:
