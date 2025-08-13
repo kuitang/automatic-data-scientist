@@ -104,7 +104,7 @@ print("</body></html>")
                     
                     # Assertions
                     assert response.status_code == 200
-                    assert "text/html" in response.headers['content-type']
+                    assert "text/markdown" in response.headers['content-type']
                     assert "Data Analysis Results" in response.text
                     assert "Total rows: 3" in response.text
     

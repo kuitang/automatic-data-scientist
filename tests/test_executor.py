@@ -36,17 +36,17 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--data', required=True)
 args = parser.parse_args()
 
-print("<!DOCTYPE html>")
-print("<html><body>")
-print("<h1>Test Output</h1>")
-print("</body></html>")
+print("# Test Output")
+print("This is a test markdown document.")
+print("## Results")
+print("The analysis was successful.")
 """
         result = await executor.execute(code, sample_data_file)
         
         assert result['success'] == True
         assert result['error'] is None
-        assert "<h1>Test Output</h1>" in result['output']
-        assert executor._is_valid_html(result['output'])
+        assert "# Test Output" in result['output']
+        assert "markdown" in result['output'].lower() or "results" in result['output'].lower()
     
     @pytest.mark.asyncio
     async def test_execution_with_error(self, executor, sample_data_file):
@@ -93,57 +93,20 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--data', required=True)
 args = parser.parse_args()
 
-print("This is not HTML")
-print("Just plain text output")
+print("# Analysis Results")
+print("This is valid markdown output")
 """
         result = await executor.execute(code, sample_data_file)
         
-        assert result['success'] == False
-        assert "not valid HTML" in result['error']
+        # Markdown validation was removed, so any output is now accepted
+        assert result['success'] == True
+        assert "Analysis Results" in result['output']
     
-    def test_html_validation(self, executor):
-        # Test valid HTML with various structures
-        assert executor._is_valid_html("<!DOCTYPE html><html><body>Test</body></html>"), \
-            "Should accept complete HTML with DOCTYPE"
-        assert executor._is_valid_html("<html><body>Test</body></html>"), \
-            "Should accept HTML without DOCTYPE"
-        assert executor._is_valid_html("  <HTML><BODY>Test</BODY></HTML>  "), \
-            "Should accept HTML with whitespace and uppercase tags"
-        
-        # Test edge cases that should be valid according to the implementation
-        assert executor._is_valid_html("<html><body><h1>Title</h1><p>Text</p></body></html>"), \
-            "Should accept HTML with nested elements"
-        assert executor._is_valid_html("<html>\n<body>\nContent\n</body>\n</html>"), \
-            "Should accept HTML with newlines"
-        
-        # The implementation accepts <html> with either </html> OR <body
-        assert executor._is_valid_html("<html>Missing body tag</html>"), \
-            "Implementation accepts HTML with </html> even without body"
-        assert executor._is_valid_html("<html><body>No closing tags"), \
-            "Implementation accepts HTML with <html and <body even without closing"
-        
-        # Test invalid cases
-        assert not executor._is_valid_html("Just plain text"), \
-            "Should reject plain text without HTML tags"
-        assert not executor._is_valid_html("{ 'json': 'data' }"), \
-            "Should reject JSON data"
-        assert not executor._is_valid_html("<div>Partial HTML</div>"), \
-            "Should reject partial HTML without html/body tags"
-        assert not executor._is_valid_html(""), \
-            "Should reject empty string"
-        assert not executor._is_valid_html("<body>Missing html tag</body>"), \
-            "Should reject HTML missing html wrapper"
-        
-        # Test that the function correctly identifies HTML starting patterns
-        assert executor._is_valid_html("<!doctype html>minimal"), \
-            "Should accept content starting with doctype"
-        assert executor._is_valid_html("<html>minimal"), \
-            "Should accept content starting with <html"
-        # Note: Implementation accepts <html anywhere if it has </html> or <body
-        assert executor._is_valid_html("Some text <html>later</html>"), \
-            "Implementation accepts <html anywhere if it has </html>"
-        assert executor._is_valid_html("prefix <html><body>content"), \
-            "Implementation accepts <html anywhere if it has <body"
+    def test_markdown_output_accepted(self, executor):
+        # Test that various markdown outputs are accepted (no validation)
+        # Since we removed validation, we just verify the executor doesn't have _is_valid_html
+        assert not hasattr(executor, '_is_valid_html'), \
+            "HTML validation method should be removed"
     
     @pytest.mark.asyncio
     async def test_script_with_pandas(self, executor, sample_data_file):

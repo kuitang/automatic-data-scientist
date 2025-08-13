@@ -172,7 +172,7 @@ class TestArtifactSaving:
                         assert script1.exists()
                         assert "first attempt" in script1.read_text()
                         
-                        output1 = iter1_path / "output.html"
+                        output1 = iter1_path / "output.md"
                         assert output1.exists()
                         assert "First" in output1.read_text()
                         
@@ -190,7 +190,7 @@ class TestArtifactSaving:
                         assert script2.exists()
                         assert "revised code" in script2.read_text()
                         
-                        output2 = iter2_path / "output.html"
+                        output2 = iter2_path / "output.md"
                         assert output2.exists()
                         assert "Revised" in output2.read_text()
                         
@@ -269,7 +269,7 @@ class TestArtifactSaving:
                         assert 'ImportError' in error_data['error']
                         assert 'Traceback' in error_data['stderr']
                         
-                        partial_output = iter1_path / "partial_output.html"
+                        partial_output = iter1_path / "partial_output.md"
                         assert partial_output.exists()
                         assert "Partial" in partial_output.read_text()
     

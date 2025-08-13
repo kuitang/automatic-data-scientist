@@ -64,15 +64,6 @@ class PythonExecutor:
             if process.returncode == 0:
                 output = stdout.decode('utf-8', errors='replace')
                 
-                # Validate that output is HTML
-                if not self._is_valid_html(output):
-                    return {
-                        'success': False,
-                        'error': 'Output is not valid HTML',
-                        'output': output,
-                        'stderr': stderr.decode('utf-8', errors='replace') if stderr else None
-                    }
-                
                 logger.info("Script executed successfully")
                 return {
                     'success': True,
@@ -99,11 +90,3 @@ class PythonExecutor:
                 'stderr': None
             }
     
-    def _is_valid_html(self, content: str) -> bool:
-        # Basic HTML validation
-        content_lower = content.lower().strip()
-        return (
-            content_lower.startswith('<!doctype html') or
-            content_lower.startswith('<html') or
-            ('<html' in content_lower and ('</html>' in content_lower or '<body' in content_lower))
-        )

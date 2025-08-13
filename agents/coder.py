@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 # System prompt template for initial code generation
 CODER_INITIAL_SYSTEM_PROMPT = """You are a Python data analysis code generator. Generate complete, executable Python scripts that:
 1. Read data from a file path provided via --data command line argument
-2. Output valid HTML to stdout with embedded charts (SVG or base64 PNG)
+2. Output valid Markdown to stdout with links to saved PNG images
 3. Use only: pandas, numpy, matplotlib, seaborn, scipy, sklearn, plotly
-4. Do not access network or write files (except temp files for plotting)
+4. Save plot images as PNG files in the current working directory
 5. Include proper error handling
 
 The data file is a {file_ext} file."""
@@ -37,31 +37,42 @@ The script MUST:
 1. Use argparse to accept a --data argument for the input file path
 2. Read the {file_extension} file from the provided path
 3. Perform all requested analyses and generate visualizations
-4. Output a complete, valid HTML document to stdout
-5. Embed all charts as either SVG strings or base64-encoded PNG images
-6. Include proper error handling for common issues
-7. Use only these packages: pandas, numpy, matplotlib, seaborn, scipy, sklearn, plotly
+4. Output a complete, valid Markdown document to stdout
+5. Save all plots as PNG files in the current working directory with descriptive names
+6. Include links to the saved images in the Markdown output using relative paths
+7. Include proper error handling for common issues
+8. Use only these packages: pandas, numpy, matplotlib, seaborn, scipy, sklearn, plotly
 
-Structure the HTML output with:
-- A clear title and sections
+Structure the Markdown output with:
+- A clear title and sections using Markdown headers (#, ##, ###)
 - In the introduction of the report, summarize the requirements you have been given
-- Professional styling (can use inline CSS)
-- All visualizations embedded directly (no external files)
-- Tables formatted nicely with borders and padding
+- Tables formatted using Markdown table syntax
 - Clear labels and descriptions for all results
+- Links to images using Markdown syntax: ![Description](filename.png)
 - IMPORTANT: For each plot/visualization, include a one-sentence takeaway text that explains what the plot intends to communicate (the evaluator cannot see plots, only text)
 
 Image Guidelines:
 - Keep all generated images small and low resolution to minimize file size
-- Use figure sizes no larger than (8, 6) inches
-- Set DPI to 72 or 80 for web display (not print quality)
-- Use efficient formats (prefer SVG for line plots, compressed PNG for complex plots)
-- Reduce marker sizes and line widths appropriately for small images
+- Use figure sizes no larger than (6, 4) inches
+- Set DPI to 72 for web display (not print quality)
+- Save as PNG with compression
+- Use descriptive filenames (e.g., 'distribution_plot.png', 'correlation_matrix.png')
+- Close matplotlib figures after saving to free memory
+
+Example of saving and linking an image:
+```python
+plt.figure(figsize=(6, 4), dpi=72)
+plt.plot(data)
+plt.title('Data Trend')
+plt.savefig('data_trend.png', dpi=72, bbox_inches='tight')
+plt.close()
+print("![Data trend over time](data_trend.png)")
+```
 
 Do not:
-- Write any files to disk (except matplotlib temp files)
 - Make any network requests
 - Use packages not in the allowed list
+- Create subdirectories (save all files in the current working directory)
 
 Generate the complete, executable Python script."""
 
@@ -99,8 +110,10 @@ Generate the complete FIXED Python script that addresses all the feedback while 
 2. Maintain the same overall structure and approach
 3. Keep all the working parts of the previous code
 4. Ensure the script still meets all original requirements AND acceptance criteria
-5. Keep images small and low resolution (figure size ≤ (8,6), DPI ≤ 80)
-6. For each plot/visualization, include a one-sentence takeaway text that explains what the plot intends to communicate (the evaluator cannot see plots, only text)
+5. Output Markdown to stdout with links to saved PNG images
+6. Keep images small and low resolution (figure size ≤ (6,4), DPI ≤ 72)
+7. Save all plots as PNG files with descriptive names
+8. For each plot/visualization, include a one-sentence takeaway text that explains what the plot intends to communicate (the evaluator cannot see plots, only text)
 
 Generate the complete, executable Python script with all fixes applied."""
 
@@ -219,20 +232,11 @@ class CoderAgent:
         
         file_ext = data_path.suffix.lower()
         
-        # Import the filtering function from architect module
-        from agents.architect import strip_base64_images
-        
-        # Filter the previous output if provided
-        filtered_output = "Not available"
-        if previous_output:
-            filtered_output = strip_base64_images(previous_output)
-            logger.info(f"Previous output provided: {len(previous_output)} chars -> {len(filtered_output)} chars after filtering")
-        
         # Use the prompts defined at the top of the file
         system_message = CODER_REVISION_SYSTEM_PROMPT.format(file_ext=file_ext)
         user_message = CODER_REVISION_USER_PROMPT.format(
             previous_code=previous_code,
-            previous_output=filtered_output,
+            previous_output=previous_output if previous_output else "Not available",
             requirements=requirements,
             acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria),
             grade=grade,

@@ -140,10 +140,10 @@ class TestCoderRevisionFiltering:
         messages = call_args[1]['messages']
         user_message = messages[1]['content']
         
-        # Verify images were filtered from the prompt
-        assert "LONGBASE64STRING" not in user_message
-        assert "rect width=" not in user_message
-        assert "[BASE64_IMAGE_REMOVED]" in user_message or "[SVG_REMOVED]" in user_message
+        # Verify that previous output is passed directly without filtering (for Markdown)
+        # Since we're using Markdown with external images, no filtering is needed
+        assert "LONGBASE64STRING" in user_message  # Content is passed as-is
+        assert "rect width=" in user_message  # SVG content is passed as-is
         
         # Verify important content was preserved
         assert "Mean: 42.5" in user_message

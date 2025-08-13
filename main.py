@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 import httpx
 import asyncio
 
@@ -143,14 +143,22 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                 logger.info("✅ Execution SUCCESSFUL - Proceeding to validation")
                 logger.info(f"Output length: {len(execution_result['output'])} characters")
                 
-                # Save the HTML output
+                # Save the Markdown output and any PNG files
                 if iteration_dir:
                     try:
-                        output_file = iteration_dir / "output.html"
+                        output_file = iteration_dir / "output.md"
                         output_file.write_text(execution_result['output'])
-                        logger.info(f"Saved HTML output to {output_file}")
+                        logger.info(f"Saved Markdown output to {output_file}")
+                        
+                        # Copy any PNG files from work_dir to iteration_dir
+                        png_files = list(work_dir.glob("*.png"))
+                        if png_files:
+                            logger.info(f"Found {len(png_files)} PNG files to save")
+                            for png_file in png_files:
+                                shutil.copy2(png_file, iteration_dir / png_file.name)
+                                logger.info(f"Saved image: {png_file.name}")
                     except Exception as e:
-                        logger.warning(f"Failed to save HTML output: {e}")
+                        logger.warning(f"Failed to save output files: {e}")
                 
                 # Validate the results
                 logger.info("\n🔍 VALIDATING output against acceptance criteria...")
@@ -183,7 +191,7 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                     logger.info("🎆 SUCCESS! All acceptance criteria met!")
                     logger.info(f"Analysis completed successfully in {iteration} iteration(s)")
                     logger.info("="*60)
-                    return HTMLResponse(content=execution_result['output'])
+                    return PlainTextResponse(content=execution_result['output'], media_type="text/markdown")
                 else:
                     logger.info("\n⚠️ Validation FAILED - Need another iteration")
                     logger.info(f"Setting feedback for next iteration: {validation['feedback'][:200]}..." if len(validation['feedback']) > 200 else f"Setting feedback for next iteration: {validation['feedback']}")
@@ -211,7 +219,7 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                         
                         # If there's partial output, save it too
                         if execution_result.get('output'):
-                            output_file = iteration_dir / "partial_output.html"
+                            output_file = iteration_dir / "partial_output.md"
                             output_file.write_text(execution_result['output'])
                             logger.info(f"Saved partial output to {output_file}")
                     except Exception as e:
@@ -226,66 +234,59 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
         logger.warning("! Returning best available output")
         logger.warning("!"*60)
         if last_result and last_result['success']:
-            # Build warning message with architect's evaluation
+            # Build warning message in Markdown format
             warning_parts = [
-                "<div style='background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; margin-bottom: 20px;'>",
-                "<h3 style='margin-top: 0; color: #856404;'>⚠️ Analysis Completed with Warnings</h3>",
-                "<p><strong>Status:</strong> Maximum iterations reached ({} iterations)</p>".format(MAX_ITERATIONS)
+                "# ⚠️ Analysis Completed with Warnings\n\n",
+                f"**Status:** Maximum iterations reached ({MAX_ITERATIONS} iterations)\n\n"
             ]
             
             if last_validation:
                 grade = last_validation.get('grade', 'N/A')
-                grade_color = '#28a745' if grade.startswith(('A', 'B')) else '#dc3545' if grade.startswith(('D', 'F')) else '#ffc107'
                 
                 warning_parts.extend([
-                    "<hr style='margin: 10px 0; border-color: #ffc107;'>",
-                    "<h4 style='color: #856404;'>Architect's Final Evaluation:</h4>",
-                    f"<p><strong>Grade:</strong> <span style='color: {grade_color}; font-size: 1.2em; font-weight: bold;'>{grade}</span></p>"
+                    "---\n\n",
+                    "## Architect's Final Evaluation\n\n",
+                    f"**Grade:** {grade}\n\n"
                 ])
                 
                 if last_validation.get('grade_justification'):
-                    warning_parts.append(f"<p><strong>Justification:</strong> {last_validation['grade_justification']}</p>")
+                    warning_parts.append(f"**Justification:** {last_validation['grade_justification']}\n\n")
                 
                 if last_validation.get('criteria_evaluation'):
-                    warning_parts.append(f"<div style='background-color: #fff; border-left: 3px solid #ffc107; padding: 10px; margin: 10px 0;'>"
-                                       f"<strong>Criteria Evaluation:</strong><br>{last_validation['criteria_evaluation']}"
-                                       f"</div>")
+                    warning_parts.append(f"### Criteria Evaluation\n{last_validation['criteria_evaluation']}\n\n")
                 
                 if last_validation.get('feedback'):
-                    warning_parts.append(f"<div style='background-color: #fff; border-left: 3px solid #dc3545; padding: 10px; margin: 10px 0;'>"
-                                       f"<strong>Remaining Issues:</strong><br>{last_validation['feedback']}"
-                                       f"</div>")
+                    warning_parts.append(f"### Remaining Issues\n{last_validation['feedback']}\n\n")
             
-            warning_parts.append("</div>")
-            warning_html = "".join(warning_parts) + last_result['output']
-            return HTMLResponse(content=warning_html)
+            warning_parts.append("---\n\n")
+            warning_markdown = "".join(warning_parts) + last_result['output']
+            return PlainTextResponse(content=warning_markdown, media_type="text/markdown")
         elif last_result and last_result.get('output'):
             # Even if execution failed, return any partial output
             error_parts = [
-                "<div style='background-color: #f8d7da; border: 1px solid #dc3545; border-radius: 5px; padding: 15px; margin-bottom: 20px;'>",
-                "<h3 style='margin-top: 0; color: #721c24;'>❌ Analysis Failed</h3>",
-                "<p><strong>Status:</strong> Maximum iterations reached ({} iterations) with execution errors</p>".format(MAX_ITERATIONS),
-                "<p><strong>Last Error:</strong> {}</p>".format(last_result.get('error', 'Unknown error'))
+                "# ❌ Analysis Failed\n\n",
+                f"**Status:** Maximum iterations reached ({MAX_ITERATIONS} iterations) with execution errors\n\n",
+                f"**Last Error:** {last_result.get('error', 'Unknown error')}\n\n"
             ]
             
             if last_validation:
                 grade = last_validation.get('grade', 'N/A') 
                 error_parts.extend([
-                    "<hr style='margin: 10px 0; border-color: #dc3545;'>",
-                    "<h4 style='color: #721c24;'>Last Successful Validation:</h4>",
-                    f"<p><strong>Grade:</strong> {grade}</p>"
+                    "---\n\n",
+                    "## Last Successful Validation\n\n",
+                    f"**Grade:** {grade}\n\n"
                 ])
                 
                 if last_validation.get('feedback'):
-                    error_parts.append(f"<p><strong>Issues:</strong> {last_validation['feedback']}</p>")
+                    error_parts.append(f"**Issues:** {last_validation['feedback']}\n\n")
             
-            error_parts.append("</div>")
-            warning_html = "".join(error_parts) + last_result.get('output', '')
-            return HTMLResponse(content=warning_html)
+            error_parts.append("---\n\n")
+            error_markdown = "".join(error_parts) + last_result.get('output', '')
+            return PlainTextResponse(content=error_markdown, media_type="text/markdown")
         else:
             # No output at all to return
-            error_html = "<div style='background-color: #f8d7da; padding: 10px;'><strong>Error:</strong> Analysis failed to produce any output within iteration limit</div>"
-            return HTMLResponse(content=error_html)
+            error_markdown = "# Error\n\nAnalysis failed to produce any output within iteration limit.\n"
+            return PlainTextResponse(content=error_markdown, media_type="text/markdown")
             
     except Exception as e:
         logger.error(f"Analysis failed: {str(e)}")

@@ -80,9 +80,9 @@ Grading guidelines:
 Remember: Some criteria may be critical enough that failing them means failing overall."""
 
 # User prompt template for validation
-ARCHITECT_VALIDATION_USER_PROMPT = """Review the HTML output below and determine if it meets all the acceptance criteria.
+ARCHITECT_VALIDATION_USER_PROMPT = """Review the Markdown output below and determine if it meets all the acceptance criteria.
 
-IMPORTANT: Ignore images. Only evaluate the text surrounding the images.
+IMPORTANT: The output references images as external PNG files. Only evaluate the text content and analysis.
 
 Original Requirements:
 {requirements}
@@ -93,15 +93,15 @@ Acceptance Criteria:
 Criteria Importance:
 {criteria_importance}
 
-HTML Output:
-{html_output}
+Markdown Output:
+{markdown_output}
 
-Evaluate each criterion carefully based on the text content only (not the images themselves). Consider the relative importance of each criterion as explained above. If any criteria are not met, provide specific, actionable feedback on what needs to be fixed or added. Be precise about what is missing or incorrect."""
+Evaluate each criterion carefully based on the text content and analysis. Consider the relative importance of each criterion as explained above. If any criteria are not met, provide specific, actionable feedback on what needs to be fixed or added. Be precise about what is missing or incorrect."""
 
-# HTML truncation constants (kept for output validation, not API messages)
-HTML_TRUNCATION_THRESHOLD = 10000  # Length above which HTML is truncated
-HTML_PREFIX_LENGTH = 5000  # Characters to keep from the beginning
-HTML_SUFFIX_LENGTH = 2000  # Characters to keep from the end
+# Output truncation constants (kept for output validation, not API messages)
+OUTPUT_TRUNCATION_THRESHOLD = 10000  # Length above which output is truncated
+OUTPUT_PREFIX_LENGTH = 5000  # Characters to keep from the beginning
+OUTPUT_SUFFIX_LENGTH = 2000  # Characters to keep from the end
 
 def strip_base64_images(html_content: str) -> str:
     """Strip base64-encoded images and all SVG content from HTML and replace with placeholders.
@@ -282,36 +282,24 @@ class ArchitectAgent:
                         "feedback": ""
                     }
     
-    async def validate_results(self, html_output: str, acceptance_criteria: List[str], requirements: str = None, criteria_importance: str = None) -> Dict[str, Any]:
+    async def validate_results(self, markdown_output: str, acceptance_criteria: List[str], requirements: str = None, criteria_importance: str = None) -> Dict[str, Any]:
         logger.info("\n" + "="*80)
         logger.info("ARCHITECT: Starting validation of results")
         logger.info("="*80)
-        logger.info(f"HTML output length: {len(html_output)} characters")
+        logger.info(f"Markdown output length: {len(markdown_output)} characters")
         logger.info(f"\nCriteria to validate against ({len(acceptance_criteria)} items):")
         for i, criterion in enumerate(acceptance_criteria, 1):
             logger.info(f"  {i}. {criterion}")
         
-        # Strip base64 images first
-        original_length = len(html_output)
-        html_output = strip_base64_images(html_output)
-        filtered_length = len(html_output)
+        # No truncation needed - Markdown is much more compact than HTML with embedded images
         
-        if original_length != filtered_length:
-            logger.info(f"Stripped base64 images: {original_length} -> {filtered_length} characters (reduced by {original_length - filtered_length} bytes)")
-        
-        # Truncate HTML if still too long after filtering
-        if len(html_output) > HTML_TRUNCATION_THRESHOLD:
-            html_summary = html_output[:HTML_PREFIX_LENGTH] + "\n... [truncated] ...\n" + html_output[-HTML_SUFFIX_LENGTH:]
-        else:
-            html_summary = html_output
-
         # Use the prompts defined at the top of the file
         system_message = ARCHITECT_VALIDATION_SYSTEM_PROMPT
         user_message = ARCHITECT_VALIDATION_USER_PROMPT.format(
             requirements=requirements if requirements else "Not specified",
             acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria),
             criteria_importance=criteria_importance if criteria_importance else "All criteria are equally important",
-            html_output=html_summary
+            markdown_output=markdown_output
         )
 
         
