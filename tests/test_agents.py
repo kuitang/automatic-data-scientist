@@ -133,6 +133,7 @@ print("<html><body>Analysis complete</body></html>")
                          new=AsyncMock(return_value=mock_response)):
             code = await coder.generate_code(
                 "Create basic analysis",
+                ["Generate HTML output", "Include basic statistics"],  # Add acceptance criteria
                 sample_data_path
             )
             
@@ -166,6 +167,7 @@ print("<html><body>Fixed version</body></html>")
             code = await coder.revise_code(
                 previous_code,
                 "Fix the argparse issue",
+                ["Accept --data argument", "Generate HTML output"],  # Add acceptance criteria
                 "Code needs to accept --data argument",
                 sample_data_path
             )
@@ -191,6 +193,7 @@ This code prints hello world."""
                          new=AsyncMock(return_value=mock_response)):
             code = await coder.generate_code(
                 "Simple script",
+                [],  # Add empty acceptance criteria
                 sample_data_path
             )
             

@@ -2,6 +2,7 @@ import os
 import logging
 import asyncio
 import time
+import re
 from pathlib import Path
 from typing import Dict, Any, List
 import openai
@@ -18,10 +19,136 @@ from limits import (
 
 logger = logging.getLogger(__name__)
 
+# ==================== ARCHITECT AGENT PROMPTS ====================
+
+# System prompt for initial planning and requirement generation
+ARCHITECT_INITIAL_SYSTEM_PROMPT = """You are a data analysis architect and grader. Your job is to:
+1. Understand the dataset structure and content
+2. Create specific, actionable requirements for analysis
+3. Define up to 5 acceptance criteria focused on data insights and substance (not style)
+4. Explain the relative importance of each criterion
+
+Focus criteria on:
+- Key insights and conclusions drawn from the data
+- Statistical validity and correctness
+- Answering the user's core questions
+- Data-driven findings and patterns
+
+Avoid criteria about:
+- Formatting and styling
+- Minor presentation issues
+- Non-essential visualizations"""
+
+# User prompt template for initial planning
+ARCHITECT_INITIAL_USER_PROMPT = """You are analyzing a dataset for a user who wants insights and visualizations.
+
+Dataset Profile:
+{data_profile}
+
+User Request:
+{user_prompt}
+
+Based on the dataset structure and the user's request, create comprehensive requirements for a Python data analysis script. The requirements should specify:
+
+1. What data cleaning or preprocessing is needed
+2. What summary statistics to calculate
+3. What specific visualizations to create (be specific about chart types, variables to plot, etc.)
+4. What statistical analyses or machine learning models to apply (if relevant)
+5. How to structure the HTML report output
+
+Also define clear, measurable acceptance criteria that can be used to validate the output. For each acceptance criterion, choose only the most relevant metrics and statistics. Avoid asking for multiple statistics to answer the same question.
+
+Be specific and actionable. The requirements will be given to another agent to implement."""
+
+# System prompt for validation and grading
+ARCHITECT_VALIDATION_SYSTEM_PROMPT = """You are grading an analysis report against acceptance criteria.
+
+Your tasks:
+1. Evaluate how well each acceptance criterion was met
+2. Assign a holistic letter grade (A+, A, A-, B+, B, B-, C+, C, C-, D, F)
+3. The report passes if it achieves B- or higher
+4. Provide specific feedback for improvement
+
+Grading guidelines:
+- A range: Exceptional work, all criteria met excellently, deep insights
+- B range: Good work, most important criteria met well, solid analysis
+- C range: Adequate work, basic criteria met but missing depth
+- D: Poor work, critical criteria not met
+- F: Failing, fundamental requirements not met
+
+Remember: Some criteria may be critical enough that failing them means failing overall."""
+
+# User prompt template for validation
+ARCHITECT_VALIDATION_USER_PROMPT = """Review the HTML output below and determine if it meets all the acceptance criteria.
+
+IMPORTANT: Ignore images. Only evaluate the text surrounding the images.
+
+Acceptance Criteria:
+{acceptance_criteria}
+
+HTML Output:
+{html_output}
+
+Evaluate each criterion carefully based on the text content only (not the images themselves). If any criteria are not met, provide specific, actionable feedback on what needs to be fixed or added. Be precise about what is missing or incorrect."""
+
 # HTML truncation constants (kept for output validation, not API messages)
 HTML_TRUNCATION_THRESHOLD = 10000  # Length above which HTML is truncated
 HTML_PREFIX_LENGTH = 5000  # Characters to keep from the beginning
 HTML_SUFFIX_LENGTH = 2000  # Characters to keep from the end
+
+def strip_base64_images(html_content: str) -> str:
+    """Strip base64-encoded images from HTML and replace with placeholders.
+    
+    This helps reduce token usage when sending HTML to OpenAI, since the
+    model cannot process images anyway.
+    """
+    # Pattern to match base64 image data URIs in img src attributes
+    # Matches: src="data:image/[type];base64,[data]" or src='...'
+    img_base64_pattern = r'(<img[^>]*\s+src=[\"\'])data:image/[^;]+;base64,[^\"\']*([\"\'][^>]*>)'
+    
+    # Replace with placeholder keeping the img tag structure
+    html_content = re.sub(
+        img_base64_pattern,
+        r'\1[BASE64_IMAGE_REMOVED]\2',
+        html_content,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Pattern to match base64 data in style attributes (background-image)
+    # Matches: url(data:image/[type];base64,[data])
+    style_base64_pattern = r'url\(["\']?data:image/[^;]+;base64,[^)"\']*(["\'\'])?\)'
+    
+    # Replace with placeholder
+    html_content = re.sub(
+        style_base64_pattern,
+        'url([BASE64_IMAGE_REMOVED])',
+        html_content,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Pattern to match inline SVG elements with base64 data
+    # This is less common but can occur
+    svg_base64_pattern = r'<svg[^>]*>[\s\S]*?data:image/[^;]+;base64,[^"\']*(["\'\'])?[\s\S]*?</svg>'
+    
+    # Replace entire SVG if it contains base64
+    html_content = re.sub(
+        svg_base64_pattern,
+        '<svg>[SVG_WITH_BASE64_REMOVED]</svg>',
+        html_content,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Also handle object or embed tags with base64 data
+    object_base64_pattern = r'(<(?:object|embed)[^>]*\s+(?:src|data)=[\"\'])data:image/[^;]+;base64,[^\"\']*([\"\'][^>]*>)'
+    
+    html_content = re.sub(
+        object_base64_pattern,
+        r'\1[BASE64_IMAGE_REMOVED]\2',
+        html_content,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    return html_content
 
 class ArchitectAgent:
     def __init__(self):
@@ -54,42 +181,12 @@ class ArchitectAgent:
         logger.info(data_profile)
         logger.info("-" * 40)
         
-        prompt = self._load_prompt('architect_initial.txt')
-        
-        system_message = """You are a data analysis architect and grader. Your job is to:
-1. Understand the dataset structure and content
-2. Create specific, actionable requirements for analysis
-3. Define up to 5 acceptance criteria focused on data insights and substance (not style)
-4. Explain the relative importance of each criterion
-
-Focus criteria on:
-- Key insights and conclusions drawn from the data
-- Statistical validity and correctness
-- Answering the user's core questions
-- Data-driven findings and patterns
-
-Avoid criteria about:
-- Formatting and styling
-- Minor presentation issues
-- Non-essential visualizations"""
-
-        user_message = prompt.format(
+        # Use the prompts defined at the top of the file
+        system_message = ARCHITECT_INITIAL_SYSTEM_PROMPT
+        user_message = ARCHITECT_INITIAL_USER_PROMPT.format(
             data_profile=data_profile,
             user_prompt=user_prompt
         )
-        
-        if not user_message:
-            # Fallback if prompt file doesn't exist
-            user_message = f"""Analyze this dataset and create requirements:
-
-Dataset Profile:
-{data_profile}
-
-User Request:
-{user_prompt}
-
-Create detailed requirements for a Python script that will analyze this data and produce an HTML report.
-Focus on substantive insights and data-driven conclusions rather than stylistic elements."""
 
         
         for attempt in range(self.max_retries):
@@ -187,47 +284,26 @@ Focus on substantive insights and data-driven conclusions rather than stylistic 
         for i, criterion in enumerate(acceptance_criteria, 1):
             logger.info(f"  {i}. {criterion}")
         
-        prompt = self._load_prompt('architect_feedback.txt')
+        # Strip base64 images first
+        original_length = len(html_output)
+        html_output = strip_base64_images(html_output)
+        filtered_length = len(html_output)
         
-        system_message = """You are grading an analysis report against acceptance criteria.
-
-Your tasks:
-1. Evaluate how well each acceptance criterion was met
-2. Assign a holistic letter grade (A+, A, A-, B+, B, B-, C+, C, C-, D, F)
-3. The report passes if it achieves B- or higher
-4. Provide specific feedback for improvement
-
-Grading guidelines:
-- A range: Exceptional work, all criteria met excellently, deep insights
-- B range: Good work, most important criteria met well, solid analysis
-- C range: Adequate work, basic criteria met but missing depth
-- D: Poor work, critical criteria not met
-- F: Failing, fundamental requirements not met
-
-Remember: Some criteria may be critical enough that failing them means failing overall."""
-
-        # Truncate HTML if too long
+        if original_length != filtered_length:
+            logger.info(f"Stripped base64 images: {original_length} -> {filtered_length} characters (reduced by {original_length - filtered_length} bytes)")
+        
+        # Truncate HTML if still too long after filtering
         if len(html_output) > HTML_TRUNCATION_THRESHOLD:
             html_summary = html_output[:HTML_PREFIX_LENGTH] + "\n... [truncated] ...\n" + html_output[-HTML_SUFFIX_LENGTH:]
         else:
             html_summary = html_output
 
-        user_message = prompt.format(
-            html_output=html_summary,
-            acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria)
+        # Use the prompts defined at the top of the file
+        system_message = ARCHITECT_VALIDATION_SYSTEM_PROMPT
+        user_message = ARCHITECT_VALIDATION_USER_PROMPT.format(
+            acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria),
+            html_output=html_summary
         )
-        
-        if not user_message:
-            # Fallback if prompt file doesn't exist
-            user_message = f"""Validate this HTML output against the acceptance criteria:
-
-Acceptance Criteria:
-{chr(10).join(f'- {c}' for c in acceptance_criteria)}
-
-HTML Output (may be truncated):
-{html_summary}
-
-Grade the output holistically. What grade does it deserve and why? What needs improvement?"""
 
         
         for attempt in range(self.max_retries):
@@ -371,9 +447,3 @@ Grade the output holistically. What grade does it deserve and why? What needs im
         except Exception as e:
             logger.error(f"Error profiling data: {str(e)}")
             return f"Error profiling data: {str(e)}"
-    
-    def _load_prompt(self, filename: str) -> str:
-        prompt_path = Path(__file__).parent.parent / "config" / "prompts" / filename
-        if prompt_path.exists():
-            return prompt_path.read_text()
-        return ""

@@ -6,14 +6,15 @@ Dataset Profile:
 User Request:
 {user_prompt}
 
-Based on the dataset structure and the user's request, create comprehensive requirements for a Python data analysis script. The requirements should specify:
+Based on the dataset structure and the user's request, generate concise requirements focusing on key questions and conclusions. Let the coder agent figure out details themselves.
 
-1. What data cleaning or preprocessing is needed
-2. What summary statistics to calculate
-3. What specific visualizations to create (be specific about chart types, variables to plot, etc.)
-4. What statistical analyses or machine learning models to apply (if relevant)
-5. How to structure the HTML report output
+Focus on:
+1. What key insights or answers the user needs
+2. What main patterns or relationships to explore
+3. What conclusions should be drawn from the data
+
+Specify WHAT insights to deliver, not HOW to implement them. Focus on essential goals and let the coder agent choose appropriate methods for data cleaning, visualization types, and statistical approaches.
 
 Also define clear, measurable acceptance criteria that can be used to validate the output. For each acceptance criterion, choose only the most relevant metrics and statistics. Avoid asking for multiple statistics to answer the same question.
 
-Be specific and actionable. The requirements will be given to another agent to implement.
+Keep requirements concise and goal-oriented. The requirements will be given to another agent to implement.

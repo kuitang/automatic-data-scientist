@@ -349,7 +349,7 @@ if __name__ == '__main__':
                          new=AsyncMock(return_value=mock_response)) as mock_create:
             
             requirements = "Analyze sales data and create price visualizations"
-            code = await coder.generate_code(requirements, sample_data_path)
+            code = await coder.generate_code(requirements, [], sample_data_path)
             
             # Verify API was called
             mock_create.assert_called_once()
@@ -407,6 +407,7 @@ print(html)'''
             code = await coder.revise_code(
                 previous_code,
                 "Analyze data and output HTML",
+                [],  # Add empty acceptance criteria
                 "Code uses hardcoded path instead of argparse. No HTML output generated.",
                 sample_data_path
             )
@@ -447,7 +448,7 @@ print(html)'''
             
             with patch.object(coder.client.chat.completions, 'create',
                              new=AsyncMock(return_value=mock_response)):
-                code = await coder.generate_code("Test", sample_data_path)
+                code = await coder.generate_code("Test", [], sample_data_path)
                 assert code.strip() == expected_output.strip()
     
     @pytest.mark.asyncio
@@ -466,7 +467,7 @@ print(html)'''
         
         with patch.object(coder.client.chat.completions, 'create',
                          side_effect=side_effects) as mock_create:
-            code = await coder.generate_code("Simple test", sample_data_path)
+            code = await coder.generate_code("Simple test", [], sample_data_path)
             
             # Should have tried 3 times
             assert mock_create.call_count == 3
@@ -479,7 +480,7 @@ print(html)'''
         with patch.object(coder.client.chat.completions, 'create',
                          side_effect=Exception("Persistent failure")):
             with pytest.raises(Exception) as exc_info:
-                await coder.generate_code("Test", sample_data_path)
+                await coder.generate_code("Test", [], sample_data_path)
             
             assert "Failed to generate code after" in str(exc_info.value)
 
@@ -532,7 +533,7 @@ print("<html><body>Analysis complete</body></html>")'''
         
         with patch.object(coder.client.chat.completions, 'create',
                          new=AsyncMock(return_value=mock_openai_response(f"```python\n{generated_code}\n```"))):
-            code = await coder.generate_code(plan['requirements'], sample_csv_file)
+            code = await coder.generate_code(plan['requirements'], plan['acceptance_criteria'], sample_csv_file)
         
         assert 'argparse' in code
         assert '<html>' in code
@@ -565,6 +566,7 @@ print("<html><body>Complete analysis with charts</body></html>")'''
             code = await coder.revise_code(
                 generated_code,
                 plan['requirements'],
+                plan['acceptance_criteria'],
                 validation['feedback'],
                 sample_csv_file
             )

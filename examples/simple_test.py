@@ -12,7 +12,7 @@ data = {
 }
 
 print("Testing with Iris dataset...")
-response = requests.post(url, data=data, timeout=120)
+response = requests.post(url, data=data, timeout=86400)
 
 if response.status_code == 200:
     with open("iris_report.html", "w") as f:

@@ -10,7 +10,7 @@ MAX_NUMERIC_COLUMNS_TO_PROFILE = 10  # Limit for data profiling
 MAX_OBJECT_COLUMNS_TO_PROFILE = 10  # Limit for data profiling
 
 # Execution limits
-EXECUTION_TIMEOUT = 30  # 30 seconds for script execution
+EXECUTION_TIMEOUT = 300  # 30 seconds for script execution
 MEMORY_LIMIT = 2 * 1024 * 1024 * 1024  # 2GB in bytes
 TOTAL_REQUEST_TIMEOUT = 300  # 5 minutes total timeout
 

@@ -438,4 +438,4 @@ class TestArtifactSaving:
                             assert (artifacts_path / "iteration_2").exists()
                             
                             # Verify warning in response about max iterations
-                            assert b"max iterations reached" in response.body
+                            assert b"Maximum iterations reached" in response.body

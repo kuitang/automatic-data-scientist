@@ -20,7 +20,7 @@ print("Analyzing NVIDIA stock data...")
 print("(This may take 1-2 minutes)\n")
 
 # Make the request
-response = requests.post(url, data=data, timeout=300)
+response = requests.post(url, data=data, timeout=86400)
 
 if response.status_code == 200:
     # Save the HTML report

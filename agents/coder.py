@@ -13,6 +13,88 @@ from limits import (
 
 logger = logging.getLogger(__name__)
 
+# ==================== CODER AGENT PROMPTS ====================
+
+# System prompt template for initial code generation
+CODER_INITIAL_SYSTEM_PROMPT = """You are a Python data analysis code generator. Generate complete, executable Python scripts that:
+1. Read data from a file path provided via --data command line argument
+2. Output valid HTML to stdout with embedded charts (SVG or base64 PNG)
+3. Use only: pandas, numpy, matplotlib, seaborn, scipy, sklearn, plotly
+4. Do not access network or write files (except temp files for plotting)
+5. Include proper error handling
+
+The data file is a {file_ext} file."""
+
+# User prompt template for initial code generation
+CODER_INITIAL_USER_PROMPT = """Generate a complete Python script that implements the following requirements:
+
+{requirements}
+
+Acceptance Criteria (must be met):
+{acceptance_criteria}
+
+The script MUST:
+1. Use argparse to accept a --data argument for the input file path
+2. Read the {file_extension} file from the provided path
+3. Perform all requested analyses and generate visualizations
+4. Output a complete, valid HTML document to stdout
+5. Embed all charts as either SVG strings or base64-encoded PNG images
+6. Include proper error handling for common issues
+7. Use only these packages: pandas, numpy, matplotlib, seaborn, scipy, sklearn, plotly
+
+Structure the HTML output with:
+- A clear title and sections
+- In the introduction of the report, summarize the requirements you have been given
+- Professional styling (can use inline CSS)
+- All visualizations embedded directly (no external files)
+- Tables formatted nicely with borders and padding
+- Clear labels and descriptions for all results
+- IMPORTANT: For each plot/visualization, include a one-sentence takeaway text that explains what the plot intends to communicate (the evaluator cannot see plots, only text)
+
+Image Guidelines:
+- Keep all generated images small and low resolution to minimize file size
+- Use figure sizes no larger than (8, 6) inches
+- Set DPI to 72 or 80 for web display (not print quality)
+- Use efficient formats (prefer SVG for line plots, compressed PNG for complex plots)
+- Reduce marker sizes and line widths appropriately for small images
+
+Do not:
+- Write any files to disk (except matplotlib temp files)
+- Make any network requests
+- Use packages not in the allowed list
+
+Generate the complete, executable Python script."""
+
+# System prompt template for code revision
+CODER_REVISION_SYSTEM_PROMPT = """You are a Python data analysis code generator. Fix the provided code based on feedback.
+Maintain the same structure but fix the specific issues mentioned.
+The data file is a {file_ext} file."""
+
+# User prompt template for code revision
+CODER_REVISION_USER_PROMPT = """Fix the Python script below based on the provided feedback.
+
+Previous Code:
+{previous_code}
+
+Original Requirements:
+{requirements}
+
+Acceptance Criteria (must be met):
+{acceptance_criteria}
+
+Feedback/Issues to Fix:
+{feedback}
+
+Generate the complete FIXED Python script that addresses all the feedback while maintaining the original requirements and meeting the acceptance criteria. Make sure to:
+1. Fix any errors or issues mentioned in the feedback
+2. Maintain the same overall structure and approach
+3. Keep all the working parts of the previous code
+4. Ensure the script still meets all original requirements AND acceptance criteria
+5. Keep images small and low resolution (figure size ≤ (8,6), DPI ≤ 80)
+6. For each plot/visualization, include a one-sentence takeaway text that explains what the plot intends to communicate (the evaluator cannot see plots, only text)
+
+Generate the complete, executable Python script with all fixes applied."""
+
 class CoderAgent:
     def __init__(self):
         self.client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -29,7 +111,7 @@ class CoderAgent:
         return 'gpt-5'
     
     
-    async def generate_code(self, requirements: str, data_path: Path) -> str:
+    async def generate_code(self, requirements: str, acceptance_criteria: list, data_path: Path) -> str:
         logger.info("\n" + "="*80)
         logger.info("CODER: Starting code generation")
         logger.info("="*80)
@@ -39,36 +121,15 @@ class CoderAgent:
         logger.info(requirements)
         logger.info("-" * 40)
         
-        prompt = self._load_prompt('coder_initial.txt')
-        
         file_ext = data_path.suffix.lower()
         
-        system_message = f"""You are a Python data analysis code generator. Generate complete, executable Python scripts that:
-1. Read data from a file path provided via --data command line argument
-2. Output valid HTML to stdout with embedded charts (SVG or base64 PNG)
-3. Use only: pandas, numpy, matplotlib, seaborn, scipy, sklearn, plotly
-4. Do not access network or write files (except temp files for plotting)
-5. Include proper error handling
-
-The data file is a {file_ext} file."""
-
-        user_message = prompt.format(
+        # Use the prompts defined at the top of the file
+        system_message = CODER_INITIAL_SYSTEM_PROMPT.format(file_ext=file_ext)
+        user_message = CODER_INITIAL_USER_PROMPT.format(
             requirements=requirements,
+            acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria),
             file_extension=file_ext
         )
-        
-        if not user_message:
-            # Fallback if prompt file doesn't exist
-            user_message = f"""Generate a Python script that:
-{requirements}
-
-The script should:
-- Accept data file path via argparse as --data argument
-- Read the {file_ext} file
-- Perform the requested analysis
-- Output a complete HTML document to stdout with all results and visualizations embedded
-- Use base64 encoding or SVG for all charts
-- Include proper styling and formatting"""
 
         
         for attempt in range(self.max_retries):
@@ -135,7 +196,7 @@ The script should:
                 else:
                     raise Exception(f"Failed to generate code after {self.max_retries} attempts: {str(e)}")
     
-    async def revise_code(self, previous_code: str, requirements: str, feedback: str, data_path: Path) -> str:
+    async def revise_code(self, previous_code: str, requirements: str, acceptance_criteria: list, feedback: str, data_path: Path) -> str:
         logger.info("\n" + "="*80)
         logger.info("CODER: Starting code revision")
         logger.info("="*80)
@@ -145,34 +206,16 @@ The script should:
         logger.info(feedback)
         logger.info("-" * 40)
         
-        prompt = self._load_prompt('coder_revision.txt')
-        
         file_ext = data_path.suffix.lower()
         
-        system_message = f"""You are a Python data analysis code generator. Fix the provided code based on feedback.
-Maintain the same structure but fix the specific issues mentioned.
-The data file is a {file_ext} file."""
-
-        user_message = prompt.format(
+        # Use the prompts defined at the top of the file
+        system_message = CODER_REVISION_SYSTEM_PROMPT.format(file_ext=file_ext)
+        user_message = CODER_REVISION_USER_PROMPT.format(
             previous_code=previous_code,
             requirements=requirements,
+            acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria),
             feedback=feedback
         )
-        
-        if not user_message:
-            # Fallback if prompt file doesn't exist
-            user_message = f"""Fix this Python script based on the feedback:
-
-Previous Code:
-{previous_code}
-
-Original Requirements:
-{requirements}
-
-Feedback/Errors to Fix:
-{feedback}
-
-Generate the complete fixed script."""
 
         
         for attempt in range(self.max_retries):
@@ -237,9 +280,3 @@ Generate the complete fixed script."""
                     await asyncio.sleep(delay)
                 else:
                     raise Exception(f"Failed to revise code after {self.max_retries} attempts: {str(e)}")
-    
-    def _load_prompt(self, filename: str) -> str:
-        prompt_path = Path(__file__).parent.parent / "config" / "prompts" / filename
-        if prompt_path.exists():
-            return prompt_path.read_text()
-        return ""
