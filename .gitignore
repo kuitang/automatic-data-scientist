@@ -71,4 +71,4 @@ artifacts/
 
 # OpenAI API Key - NEVER commit this
 openai_key.txt
-api_key.txt
+api_key.txtbrief_artifacts

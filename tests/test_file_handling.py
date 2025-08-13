@@ -62,8 +62,16 @@ class TestFileHandling:
                     temp_dir
                 )
             
-            # HTTPException detail is in the detail attribute, not in str()
-            assert "100" in str(exc_info.value.detail)
+            # Check the exact error message about file size limit
+            error_detail = str(exc_info.value.detail)
+            assert "100" in error_detail and ("MB" in error_detail or "megabyte" in error_detail.lower()), \
+                f"Error should mention 100MB limit, got: {error_detail}"
+            assert "exceeds" in error_detail.lower() or "too large" in error_detail.lower(), \
+                f"Error should indicate file is too large, got: {error_detail}"
+            
+            # Verify no file was saved to disk
+            csv_files = list(temp_dir.glob("*.csv"))
+            assert len(csv_files) == 0, f"No file should be saved when size limit exceeded"
     
     @pytest.mark.asyncio
     async def test_supported_file_types(self, temp_dir):

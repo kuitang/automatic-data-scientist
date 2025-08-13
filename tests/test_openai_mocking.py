@@ -217,19 +217,11 @@ class TestArchitectAgentMocking(TestOpenAIMocking):
     async def test_api_retry_mechanism(self, architect, sample_csv_file, mock_structured_response):
         """Test retry mechanism when API calls fail."""
         
-        plan_response = ArchitectPlanResponse(
-            requirements="Basic analysis",
-            acceptance_criteria=["Generate report"],
-            criteria_importance="Report is key",
-            is_complete=False,
-            feedback=""
-        )
-        
-        # First two calls fail, third succeeds
+        # All calls fail, should fall back to default
         side_effects = [
             Exception("API rate limit exceeded"),
             Exception("Connection timeout"),
-            mock_structured_response(plan_response)
+            Exception("Service unavailable")
         ]
         
         with patch.object(architect.client.beta.chat.completions, 'parse',
@@ -245,6 +237,15 @@ class TestArchitectAgentMocking(TestOpenAIMocking):
             # Should get default fallback after max retries
             assert 'requirements' in result
             assert 'acceptance_criteria' in result
+            
+            # Verify it's the default fallback, not from API
+            assert isinstance(result['acceptance_criteria'], list)
+            assert len(result['acceptance_criteria']) > 0
+            # The default should include basic analysis requirements
+            assert any('statistics' in criterion.lower() or 'summary' in criterion.lower() 
+                      for criterion in result['acceptance_criteria']), \
+                "Default fallback should include basic statistical analysis"
+            assert result['is_complete'] == False  # Default is always incomplete
     
     @pytest.mark.asyncio
     async def test_data_profiling_accuracy(self, architect, sample_csv_file):
@@ -409,7 +410,9 @@ print(html)'''
                 "Analyze data and output HTML",
                 [],  # Add empty acceptance criteria
                 "Code uses hardcoded path instead of argparse. No HTML output generated.",
-                sample_data_path
+                sample_data_path,
+                grade="D",
+                grade_justification="Missing argparse and HTML output"
             )
             
             # Verify the revision call
@@ -568,7 +571,9 @@ print("<html><body>Complete analysis with charts</body></html>")'''
                 plan['requirements'],
                 plan['acceptance_criteria'],
                 validation['feedback'],
-                sample_csv_file
+                sample_csv_file,
+                grade=validation.get('grade', 'C'),
+                grade_justification=validation.get('grade_justification', 'Needs improvement')
             )
         
         assert 'matplotlib' in code

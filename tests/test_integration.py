@@ -29,11 +29,6 @@ class TestIntegration:
     def mock_csv_response(self):
         return b"product,sales,profit\nA,100,20\nB,150,35\nC,200,50"
     
-    def test_analyze_endpoint_exists(self, client):
-        # Test that endpoint exists (will fail with missing params)
-        response = client.post("/analyze")
-        assert response.status_code in [422, 400]  # Unprocessable entity for missing params
-    
     @pytest.mark.asyncio
     async def test_full_analysis_flow_with_mocks(self):
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test_key'}):

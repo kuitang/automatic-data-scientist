@@ -76,6 +76,9 @@ CODER_REVISION_USER_PROMPT = """Fix the Python script below based on the provide
 Previous Code:
 {previous_code}
 
+Previous Output (what your code produced):
+{previous_output}
+
 Original Requirements:
 {requirements}
 
@@ -202,7 +205,7 @@ class CoderAgent:
                 else:
                     raise Exception(f"Failed to generate code after {self.max_retries} attempts: {str(e)}")
     
-    async def revise_code(self, previous_code: str, requirements: str, acceptance_criteria: list, feedback: str, data_path: Path, grade: str, grade_justification: str) -> str:
+    async def revise_code(self, previous_code: str, requirements: str, acceptance_criteria: list, feedback: str, data_path: Path, grade: str, grade_justification: str, previous_output: Optional[str] = None) -> str:
         logger.info("\n" + "="*80)
         logger.info("CODER: Starting code revision")
         logger.info("="*80)
@@ -216,10 +219,20 @@ class CoderAgent:
         
         file_ext = data_path.suffix.lower()
         
+        # Import the filtering function from architect module
+        from agents.architect import strip_base64_images
+        
+        # Filter the previous output if provided
+        filtered_output = "Not available"
+        if previous_output:
+            filtered_output = strip_base64_images(previous_output)
+            logger.info(f"Previous output provided: {len(previous_output)} chars -> {len(filtered_output)} chars after filtering")
+        
         # Use the prompts defined at the top of the file
         system_message = CODER_REVISION_SYSTEM_PROMPT.format(file_ext=file_ext)
         user_message = CODER_REVISION_USER_PROMPT.format(
             previous_code=previous_code,
+            previous_output=filtered_output,
             requirements=requirements,
             acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria),
             grade=grade,

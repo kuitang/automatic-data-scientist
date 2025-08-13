@@ -322,8 +322,17 @@ class TestArtifactSaving:
                             )
                         
                         # Verify no artifacts directory was created
-                        # (would fail if trying to write to nonexistent ARTIFACTS_OUTPUT)
                         assert response.status_code == 200
+                        
+                        # Check common artifact locations to ensure no directory was created
+                        import tempfile
+                        possible_locations = [
+                            Path(f"/tmp/no-artifacts-uuid"),
+                            Path(tempfile.gettempdir()) / "no-artifacts-uuid",
+                            Path(".") / "no-artifacts-uuid"
+                        ]
+                        for location in possible_locations:
+                            assert not location.exists(), f"Artifacts directory should not exist at {location}"
     
     @pytest.mark.asyncio
     async def test_artifacts_saving_failure_does_not_break_analysis(self, mock_env_artifacts):

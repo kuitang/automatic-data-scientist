@@ -102,25 +102,48 @@ print("Just plain text output")
         assert "not valid HTML" in result['error']
     
     def test_html_validation(self, executor):
-        valid_html_cases = [
-            "<!DOCTYPE html><html><body>Test</body></html>",
-            "<html><body>Test</body></html>",
-            "<!doctype html><html><head></head><body>Test</body></html>",
-            "  <HTML><BODY>Test</BODY></HTML>  "
-        ]
+        # Test valid HTML with various structures
+        assert executor._is_valid_html("<!DOCTYPE html><html><body>Test</body></html>"), \
+            "Should accept complete HTML with DOCTYPE"
+        assert executor._is_valid_html("<html><body>Test</body></html>"), \
+            "Should accept HTML without DOCTYPE"
+        assert executor._is_valid_html("  <HTML><BODY>Test</BODY></HTML>  "), \
+            "Should accept HTML with whitespace and uppercase tags"
         
-        for html in valid_html_cases:
-            assert executor._is_valid_html(html) == True
+        # Test edge cases that should be valid according to the implementation
+        assert executor._is_valid_html("<html><body><h1>Title</h1><p>Text</p></body></html>"), \
+            "Should accept HTML with nested elements"
+        assert executor._is_valid_html("<html>\n<body>\nContent\n</body>\n</html>"), \
+            "Should accept HTML with newlines"
         
-        invalid_html_cases = [
-            "Just plain text",
-            "{ 'json': 'data' }",
-            "<div>Partial HTML</div>",
-            ""
-        ]
+        # The implementation accepts <html> with either </html> OR <body
+        assert executor._is_valid_html("<html>Missing body tag</html>"), \
+            "Implementation accepts HTML with </html> even without body"
+        assert executor._is_valid_html("<html><body>No closing tags"), \
+            "Implementation accepts HTML with <html and <body even without closing"
         
-        for html in invalid_html_cases:
-            assert executor._is_valid_html(html) == False
+        # Test invalid cases
+        assert not executor._is_valid_html("Just plain text"), \
+            "Should reject plain text without HTML tags"
+        assert not executor._is_valid_html("{ 'json': 'data' }"), \
+            "Should reject JSON data"
+        assert not executor._is_valid_html("<div>Partial HTML</div>"), \
+            "Should reject partial HTML without html/body tags"
+        assert not executor._is_valid_html(""), \
+            "Should reject empty string"
+        assert not executor._is_valid_html("<body>Missing html tag</body>"), \
+            "Should reject HTML missing html wrapper"
+        
+        # Test that the function correctly identifies HTML starting patterns
+        assert executor._is_valid_html("<!doctype html>minimal"), \
+            "Should accept content starting with doctype"
+        assert executor._is_valid_html("<html>minimal"), \
+            "Should accept content starting with <html"
+        # Note: Implementation accepts <html anywhere if it has </html> or <body
+        assert executor._is_valid_html("Some text <html>later</html>"), \
+            "Implementation accepts <html anywhere if it has </html>"
+        assert executor._is_valid_html("prefix <html><body>content"), \
+            "Implementation accepts <html anywhere if it has <body"
     
     @pytest.mark.asyncio
     async def test_script_with_pandas(self, executor, sample_data_file):

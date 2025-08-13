@@ -27,16 +27,6 @@ class TestArchitectPlanResponse:
         assert response.is_complete is False
         assert response.feedback == ""
     
-    def test_plan_response_with_defaults(self):
-        """Test plan response with default values."""
-        response = ArchitectPlanResponse(
-            requirements="Basic analysis",
-            acceptance_criteria=["Create report"],
-            criteria_importance="Report generation is the primary requirement."
-        )
-        assert response.is_complete is False
-        assert response.feedback == ""
-    
     def test_invalid_plan_response_missing_required(self):
         """Test that missing required fields raise validation error."""
         with pytest.raises(ValidationError) as exc_info:

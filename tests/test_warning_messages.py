@@ -139,17 +139,27 @@ class TestWarningMessages:
             "<p><strong>Status:</strong> Maximum iterations reached (3 iterations)</p>"
         ]
         
-        # When no validation, no additional content is added
+        # Test that validation-specific content is only added when validation exists
         if last_validation:
-            warning_parts.append("Should not appear")
+            # This block should not execute when last_validation is None
+            warning_parts.append("<hr style='margin: 10px 0; border-color: #ffc107;'>")
+            warning_parts.append("<h4 style='color: #856404;'>Architect's Final Evaluation:</h4>")
+            grade = last_validation.get('grade', 'N/A')
+            warning_parts.append(f"<p><strong>Grade:</strong> {grade}</p>")
         
         warning_parts.append("</div>")
         warning_html = "".join(warning_parts)
         
         # Verify basic warning is shown without evaluation details
         assert "Maximum iterations reached" in warning_html
-        assert "Should not appear" not in warning_html
+        assert "Architect's Final Evaluation" not in warning_html
         assert "Grade:" not in warning_html
+        assert warning_html.count("<hr") == 0  # No horizontal rule should be added
+        
+        # Verify the structure is correct
+        assert warning_html.startswith("<div style='background-color: #fff3cd")
+        assert warning_html.endswith("</div>")
+        assert "⚠️ Analysis Completed with Warnings" in warning_html
     
     def test_error_message_with_validation(self):
         """Test error message generation with last validation data."""

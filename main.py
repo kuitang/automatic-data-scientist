@@ -106,6 +106,13 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                 logger.info("\n🔄 ITERATION TYPE: Code revision based on feedback")
                 logger.info(f"ITERATION GOAL: Address feedback from previous validation")
                 logger.info(f"Previous feedback: {initial_requirements['feedback'][:200]}..." if len(initial_requirements.get('feedback', '')) > 200 else f"Previous feedback: {initial_requirements.get('feedback', '')}")
+                
+                # Pass the previous output if available
+                previous_output = None
+                if last_result and last_result.get('success') and last_result.get('output'):
+                    previous_output = last_result['output']
+                    logger.info(f"Passing previous output to coder: {len(previous_output)} characters")
+                
                 code = await coder.revise_code(
                     last_code,
                     initial_requirements['requirements'],
@@ -113,7 +120,8 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                     initial_requirements['feedback'],
                     data_path,
                     initial_requirements.get('grade', 'Not provided'),
-                    initial_requirements.get('grade_justification', 'Not provided')
+                    initial_requirements.get('grade_justification', 'Not provided'),
+                    previous_output=previous_output
                 )
             
             last_code = code

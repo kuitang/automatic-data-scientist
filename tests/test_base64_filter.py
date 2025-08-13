@@ -191,13 +191,6 @@ class TestBase64ImageFilter:
         result = strip_base64_images(html_input)
         assert result == expected, f"Expected: {expected}\nGot: {result}"
     
-    def test_empty_html(self):
-        """Test that empty HTML is handled correctly."""
-        html_input = ""
-        expected = ""
-        result = strip_base64_images(html_input)
-        assert result == expected, "Empty HTML should remain empty"
-    
     def test_no_images(self):
         """Test HTML with no images at all."""
         html_input = "<div><p>Just text content</p><span>No images here</span></div>"

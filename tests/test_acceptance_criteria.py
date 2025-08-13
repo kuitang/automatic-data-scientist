@@ -89,9 +89,11 @@ class TestCoderAcceptanceCriteria:
         ]
         feedback = "Missing correlation analysis and second plot"
         
-        # Call revise_code
+        # Call revise_code with required grade parameters
         result = await coder_agent.revise_code(
-            previous_code, requirements, acceptance_criteria, feedback, sample_data_path
+            previous_code, requirements, acceptance_criteria, feedback, sample_data_path,
+            grade="C+",
+            grade_justification="Missing correlation analysis"
         )
         
         # Verify the API was called
@@ -166,8 +168,13 @@ class TestCoderAcceptanceCriteria:
         messages = call_args[1]['messages']
         user_message = messages[1]['content']
         
-        # Should still have the header but no criteria
+        # Verify that empty criteria are handled properly
         assert "Acceptance Criteria (must be met):" in user_message
+        # Should not have any bullet points since criteria list is empty
+        assert "- " not in user_message.split("Acceptance Criteria (must be met):")[1].split("\n")[0:3], \
+            "Should not have bullet points immediately after criteria header when list is empty"
+        # Verify the requirements are still included
+        assert "Test requirements" in user_message
 
 
 if __name__ == "__main__":
