@@ -1,0 +1,19 @@
+You are analyzing a dataset for a user who wants insights and visualizations.
+
+Dataset Profile:
+{data_profile}
+
+User Request:
+{user_prompt}
+
+Based on the dataset structure and the user's request, create comprehensive requirements for a Python data analysis script. The requirements should specify:
+
+1. What data cleaning or preprocessing is needed
+2. What summary statistics to calculate
+3. What specific visualizations to create (be specific about chart types, variables to plot, etc.)
+4. What statistical analyses or machine learning models to apply (if relevant)
+5. How to structure the HTML report output
+
+Also define clear, measurable acceptance criteria that can be used to validate the output.
+
+Be specific and actionable. The requirements will be given to another agent to implement.

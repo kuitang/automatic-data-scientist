@@ -1,0 +1,9 @@
+Review the HTML output below and determine if it meets all the acceptance criteria.
+
+Acceptance Criteria:
+{acceptance_criteria}
+
+HTML Output:
+{html_output}
+
+Evaluate each criterion carefully. If any criteria are not met, provide specific, actionable feedback on what needs to be fixed or added. Be precise about what is missing or incorrect.

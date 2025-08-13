@@ -1,0 +1,18 @@
+Fix the Python script below based on the provided feedback.
+
+Previous Code:
+{previous_code}
+
+Original Requirements:
+{requirements}
+
+Feedback/Issues to Fix:
+{feedback}
+
+Generate the complete FIXED Python script that addresses all the feedback while maintaining the original requirements. Make sure to:
+1. Fix any errors or issues mentioned in the feedback
+2. Maintain the same overall structure and approach
+3. Keep all the working parts of the previous code
+4. Ensure the script still meets all original requirements
+
+Generate the complete, executable Python script with all fixes applied.
