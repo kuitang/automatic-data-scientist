@@ -14,6 +14,6 @@ Based on the dataset structure and the user's request, create comprehensive requ
 4. What statistical analyses or machine learning models to apply (if relevant)
 5. How to structure the HTML report output
 
-Also define clear, measurable acceptance criteria that can be used to validate the output.
+Also define clear, measurable acceptance criteria that can be used to validate the output. For each acceptance criterion, choose only the most relevant metrics and statistics. Avoid asking for multiple statistics to answer the same question.
 
 Be specific and actionable. The requirements will be given to another agent to implement.

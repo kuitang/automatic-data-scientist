@@ -18,6 +18,7 @@ Structure the HTML output with:
 - All visualizations embedded directly (no external files)
 - Tables formatted nicely with borders and padding
 - Clear labels and descriptions for all results
+- IMPORTANT: For each plot/visualization, include a one-sentence takeaway text that explains what the plot intends to communicate (the evaluator cannot see plots, only text)
 
 Image Guidelines:
 - Keep all generated images small and low resolution to minimize file size
