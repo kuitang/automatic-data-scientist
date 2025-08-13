@@ -82,6 +82,12 @@ Original Requirements:
 Acceptance Criteria (must be met):
 {acceptance_criteria}
 
+Previous Grade:
+{grade}
+
+Grade Justification:
+{grade_justification}
+
 Feedback/Issues to Fix:
 {feedback}
 
@@ -196,11 +202,13 @@ class CoderAgent:
                 else:
                     raise Exception(f"Failed to generate code after {self.max_retries} attempts: {str(e)}")
     
-    async def revise_code(self, previous_code: str, requirements: str, acceptance_criteria: list, feedback: str, data_path: Path, grade: str = None, grade_justification: str = None) -> str:
+    async def revise_code(self, previous_code: str, requirements: str, acceptance_criteria: list, feedback: str, data_path: Path, grade: str, grade_justification: str) -> str:
         logger.info("\n" + "="*80)
         logger.info("CODER: Starting code revision")
         logger.info("="*80)
         logger.info(f"Previous code length: {len(previous_code)} characters")
+        logger.info(f"\nPrevious Grade: {grade}")
+        logger.info(f"Grade Justification: {grade_justification}")
         logger.info(f"\nFeedback to address:")
         logger.info("-" * 40)
         logger.info(feedback)
@@ -214,6 +222,8 @@ class CoderAgent:
             previous_code=previous_code,
             requirements=requirements,
             acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria),
+            grade=grade,
+            grade_justification=grade_justification,
             feedback=feedback
         )
 

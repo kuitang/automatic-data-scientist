@@ -111,7 +111,9 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                     initial_requirements['requirements'],
                     initial_requirements['acceptance_criteria'],
                     initial_requirements['feedback'],
-                    data_path
+                    data_path,
+                    initial_requirements.get('grade', 'Not provided'),
+                    initial_requirements.get('grade_justification', 'Not provided')
                 )
             
             last_code = code
@@ -178,6 +180,8 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                     logger.info("\n⚠️ Validation FAILED - Need another iteration")
                     logger.info(f"Setting feedback for next iteration: {validation['feedback'][:200]}..." if len(validation['feedback']) > 200 else f"Setting feedback for next iteration: {validation['feedback']}")
                     initial_requirements['feedback'] = validation['feedback']
+                    initial_requirements['grade'] = validation.get('grade', 'Not provided')
+                    initial_requirements['grade_justification'] = validation.get('grade_justification', 'Not provided')
                     last_result = execution_result
             else:
                 # Handle execution error

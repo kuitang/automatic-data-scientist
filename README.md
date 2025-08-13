@@ -49,6 +49,22 @@ Start the FastAPI server:
 python3 main.py
 ```
 
+With custom settings:
+```bash
+# Set max iterations to 10
+export MAX_ITERATIONS=10
+python3 main.py
+
+# Save artifacts for debugging
+export ARTIFACTS_OUTPUT=/path/to/output
+python3 main.py
+
+# Both settings
+export MAX_ITERATIONS=10
+export ARTIFACTS_OUTPUT=/path/to/output
+python3 main.py
+```
+
 The server will start on http://localhost:8000
 
 ### Usage
@@ -124,6 +140,8 @@ pytest tests/test_agents.py::TestArchitectAgent -v
 ### Environment Variables
 
 - `OPENAI_API_KEY`: Your OpenAI API key (required)
+- `MAX_ITERATIONS`: Maximum iteration attempts (default: 3)
+- `ARTIFACTS_OUTPUT`: Directory to save artifacts/debug output
 
 ### Model Configuration
 
