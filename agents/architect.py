@@ -104,7 +104,7 @@ HTML_PREFIX_LENGTH = 5000  # Characters to keep from the beginning
 HTML_SUFFIX_LENGTH = 2000  # Characters to keep from the end
 
 def strip_base64_images(html_content: str) -> str:
-    """Strip base64-encoded images from HTML and replace with placeholders.
+    """Strip base64-encoded images and all SVG content from HTML and replace with placeholders.
     
     This helps reduce token usage when sending HTML to OpenAI, since the
     model cannot process images anyway.
@@ -133,14 +133,14 @@ def strip_base64_images(html_content: str) -> str:
         flags=re.IGNORECASE | re.DOTALL
     )
     
-    # Pattern to match inline SVG elements with base64 data
-    # This is less common but can occur
-    svg_base64_pattern = r'<svg[^>]*>[\s\S]*?data:image/[^;]+;base64,[^"\']*(["\'\'])?[\s\S]*?</svg>'
+    # Pattern to match ALL inline SVG elements (not just those with base64)
+    # This will match any SVG tag and its entire content
+    svg_pattern = r'<svg[^>]*>[\s\S]*?</svg>'
     
-    # Replace entire SVG if it contains base64
+    # Replace entire SVG with placeholder
     html_content = re.sub(
-        svg_base64_pattern,
-        '<svg>[SVG_WITH_BASE64_REMOVED]</svg>',
+        svg_pattern,
+        '<svg>[SVG_REMOVED]</svg>',
         html_content,
         flags=re.IGNORECASE | re.DOTALL
     )

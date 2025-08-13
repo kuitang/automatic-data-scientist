@@ -84,7 +84,61 @@ class TestBase64Filtering:
         """Test filtering SVG elements containing base64."""
         html = '<svg width="100"><image href="data:image/png;base64,ABC"/></svg>'
         result = strip_base64_images(html)
-        assert result == '<svg>[SVG_WITH_BASE64_REMOVED]</svg>'
+        assert result == '<svg>[SVG_REMOVED]</svg>'
+    
+    def test_svg_without_base64(self):
+        """Test filtering regular SVG elements without base64."""
+        html = '<svg width="100" height="100"><circle cx="50" cy="50" r="40"/></svg>'
+        result = strip_base64_images(html)
+        assert result == '<svg>[SVG_REMOVED]</svg>'
+    
+    def test_inline_svg_chart(self):
+        """Test filtering inline SVG chart without base64."""
+        html = '''
+        <svg viewBox="0 0 200 100">
+            <rect x="10" y="10" width="30" height="80" fill="blue"/>
+            <rect x="50" y="20" width="30" height="70" fill="red"/>
+            <text x="10" y="95">Chart</text>
+        </svg>
+        '''
+        result = strip_base64_images(html)
+        assert '<svg>[SVG_REMOVED]</svg>' in result
+    
+    def test_multiple_svg_elements(self):
+        """Test filtering multiple SVG elements."""
+        html = '''
+        <div>
+            <svg id="chart1"><rect width="100" height="50"/></svg>
+            <p>Some text</p>
+            <svg id="chart2"><circle r="25"/></svg>
+        </div>
+        '''
+        expected = '''
+        <div>
+            <svg>[SVG_REMOVED]</svg>
+            <p>Some text</p>
+            <svg>[SVG_REMOVED]</svg>
+        </div>
+        '''
+        result = strip_base64_images(html)
+        assert result == expected
+    
+    def test_nested_svg_elements(self):
+        """Test filtering nested SVG elements."""
+        html = '''
+        <div class="chart-container">
+            <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+                <g transform="translate(10,10)">
+                    <rect width="100" height="200" fill="green"/>
+                    <text x="50" y="100">Data</text>
+                </g>
+            </svg>
+        </div>
+        '''
+        result = strip_base64_images(html)
+        assert '<svg>[SVG_REMOVED]</svg>' in result
+        assert '<rect' not in result
+        assert '<text' not in result
     
     def test_object_embed_tags(self):
         """Test filtering object and embed tags with base64."""
