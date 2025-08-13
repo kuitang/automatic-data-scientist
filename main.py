@@ -129,12 +129,37 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                 logger.info("✅ Execution SUCCESSFUL - Proceeding to validation")
                 logger.info(f"Output length: {len(execution_result['output'])} characters")
                 
+                # Save the HTML output
+                if iteration_dir:
+                    try:
+                        output_file = iteration_dir / "output.html"
+                        output_file.write_text(execution_result['output'])
+                        logger.info(f"Saved HTML output to {output_file}")
+                    except Exception as e:
+                        logger.warning(f"Failed to save HTML output: {e}")
+                
                 # Validate the results
                 logger.info("\n🔍 VALIDATING output against acceptance criteria...")
                 validation = await architect.validate_results(
                     execution_result['output'],
                     initial_requirements['acceptance_criteria']
                 )
+                
+                # Save the validation/grade
+                if iteration_dir:
+                    try:
+                        grade_data = {
+                            "grade": validation.get('grade', 'N/A'),
+                            "grade_justification": validation.get('grade_justification', ''),
+                            "criteria_evaluation": validation.get('criteria_evaluation', ''),
+                            "is_complete": validation['is_complete'],
+                            "feedback": validation['feedback']
+                        }
+                        grade_file = iteration_dir / "grade.json"
+                        grade_file.write_text(json.dumps(grade_data, indent=2))
+                        logger.info(f"Saved grade to {grade_file}: {grade_data['grade']}")
+                    except Exception as e:
+                        logger.warning(f"Failed to save grade: {e}")
                 
                 if validation['is_complete']:
                     logger.info("\n" + "="*60)
@@ -151,6 +176,28 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                 # Handle execution error
                 logger.error(f"\n❌ Execution FAILED with error: {execution_result['error']}")
                 logger.info("Setting error as feedback for next iteration")
+                
+                # Save error information
+                if iteration_dir:
+                    try:
+                        error_data = {
+                            "execution_failed": True,
+                            "error": execution_result['error'],
+                            "stderr": execution_result.get('stderr', ''),
+                            "partial_output": execution_result.get('output', '')
+                        }
+                        error_file = iteration_dir / "error.json"
+                        error_file.write_text(json.dumps(error_data, indent=2))
+                        logger.info(f"Saved error details to {error_file}")
+                        
+                        # If there's partial output, save it too
+                        if execution_result.get('output'):
+                            output_file = iteration_dir / "partial_output.html"
+                            output_file.write_text(execution_result['output'])
+                            logger.info(f"Saved partial output to {output_file}")
+                    except Exception as e:
+                        logger.warning(f"Failed to save error details: {e}")
+                
                 initial_requirements['feedback'] = f"Code execution error: {execution_result['error']}"
                 last_result = execution_result
         
