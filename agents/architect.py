@@ -84,13 +84,19 @@ ARCHITECT_VALIDATION_USER_PROMPT = """Review the HTML output below and determine
 
 IMPORTANT: Ignore images. Only evaluate the text surrounding the images.
 
+Original Requirements:
+{requirements}
+
 Acceptance Criteria:
 {acceptance_criteria}
+
+Criteria Importance:
+{criteria_importance}
 
 HTML Output:
 {html_output}
 
-Evaluate each criterion carefully based on the text content only (not the images themselves). If any criteria are not met, provide specific, actionable feedback on what needs to be fixed or added. Be precise about what is missing or incorrect."""
+Evaluate each criterion carefully based on the text content only (not the images themselves). Consider the relative importance of each criterion as explained above. If any criteria are not met, provide specific, actionable feedback on what needs to be fixed or added. Be precise about what is missing or incorrect."""
 
 # HTML truncation constants (kept for output validation, not API messages)
 HTML_TRUNCATION_THRESHOLD = 10000  # Length above which HTML is truncated
@@ -276,7 +282,7 @@ class ArchitectAgent:
                         "feedback": ""
                     }
     
-    async def validate_results(self, html_output: str, acceptance_criteria: List[str]) -> Dict[str, Any]:
+    async def validate_results(self, html_output: str, acceptance_criteria: List[str], requirements: str = None, criteria_importance: str = None) -> Dict[str, Any]:
         logger.info("\n" + "="*80)
         logger.info("ARCHITECT: Starting validation of results")
         logger.info("="*80)
@@ -302,7 +308,9 @@ class ArchitectAgent:
         # Use the prompts defined at the top of the file
         system_message = ARCHITECT_VALIDATION_SYSTEM_PROMPT
         user_message = ARCHITECT_VALIDATION_USER_PROMPT.format(
+            requirements=requirements if requirements else "Not specified",
             acceptance_criteria="\n".join(f"- {c}" for c in acceptance_criteria),
+            criteria_importance=criteria_importance if criteria_importance else "All criteria are equally important",
             html_output=html_summary
         )
 

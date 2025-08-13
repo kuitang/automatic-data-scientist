@@ -196,7 +196,7 @@ class CoderAgent:
                 else:
                     raise Exception(f"Failed to generate code after {self.max_retries} attempts: {str(e)}")
     
-    async def revise_code(self, previous_code: str, requirements: str, acceptance_criteria: list, feedback: str, data_path: Path) -> str:
+    async def revise_code(self, previous_code: str, requirements: str, acceptance_criteria: list, feedback: str, data_path: Path, grade: str = None, grade_justification: str = None) -> str:
         logger.info("\n" + "="*80)
         logger.info("CODER: Starting code revision")
         logger.info("="*80)

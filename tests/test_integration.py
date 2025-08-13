@@ -259,18 +259,22 @@ print("<!DOCTYPE html><html><body>Partial results</body></html>")
         
         # Test default value
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test_key'}, clear=True):
+            import limits
             import main
+            importlib.reload(limits)
             importlib.reload(main)
             assert main.MAX_ITERATIONS == 3
         
         # Test custom value
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test_key', 'MAX_ITERATIONS': '5'}):
+            importlib.reload(limits)
             importlib.reload(main)
             assert main.MAX_ITERATIONS == 5
         
         # Test invalid value defaults to 3
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test_key', 'MAX_ITERATIONS': 'invalid'}):
             try:
+                importlib.reload(limits)
                 importlib.reload(main)
             except ValueError:
                 # This is expected, the int() conversion will fail

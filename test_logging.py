@@ -86,7 +86,9 @@ async def test_logging():
             print("\n🔍 PHASE 4: Architect validating results...")
             validation = await architect.validate_results(
                 execution_result['output'],
-                requirements['acceptance_criteria']
+                requirements['acceptance_criteria'],
+                requirements.get('requirements'),
+                requirements.get('criteria_importance')
             )
             
             if validation['is_complete']:

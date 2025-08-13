@@ -58,6 +58,7 @@ output.log
 test_output.log
 
 # Test/Demo outputs
+*.html
 *_report.html
 iris_report.html
 demo_*.py

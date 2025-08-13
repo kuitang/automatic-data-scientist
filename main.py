@@ -146,7 +146,9 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                 logger.info("\n🔍 VALIDATING output against acceptance criteria...")
                 validation = await architect.validate_results(
                     execution_result['output'],
-                    initial_requirements['acceptance_criteria']
+                    initial_requirements['acceptance_criteria'],
+                    initial_requirements.get('requirements'),
+                    initial_requirements.get('criteria_importance')
                 )
                 last_validation = validation  # Store for potential use in warning message
                 
