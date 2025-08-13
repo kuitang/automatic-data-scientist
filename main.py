@@ -3,6 +3,7 @@ import sys
 import uuid
 import shutil
 import logging
+import json
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, Form, HTTPException
@@ -36,6 +37,22 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
     work_dir = Path(f"/tmp/analysis_{analysis_id}")
     work_dir.mkdir(exist_ok=True)
     
+    # Set up artifact saving if ARTIFACTS_OUTPUT is set
+    artifacts_dir = None
+    if os.getenv("ARTIFACTS_OUTPUT"):
+        artifacts_base = Path(os.getenv("ARTIFACTS_OUTPUT"))
+        artifacts_dir = artifacts_base / analysis_id
+        try:
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
+            # Save the user request
+            request_file = artifacts_dir / "request.txt"
+            request_content = f"URL: {url}\n\nPrompt:\n{prompt}"
+            request_file.write_text(request_content)
+            logger.info(f"Saving artifacts to: {artifacts_dir}")
+        except Exception as e:
+            logger.warning(f"Failed to set up artifacts directory: {e}")
+            artifacts_dir = None
+    
     try:
         # Download and validate file
         data_path = await download_and_validate_file(url, work_dir)
@@ -66,6 +83,16 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
             logger.info(f"*** ITERATION {iteration}/{MAX_ITERATIONS} ***")
             logger.info("*"*60)
             
+            # Create iteration directory for artifacts
+            iteration_dir = None
+            if artifacts_dir:
+                iteration_dir = artifacts_dir / f"iteration_{iteration}"
+                try:
+                    iteration_dir.mkdir(exist_ok=True)
+                except Exception as e:
+                    logger.warning(f"Failed to create iteration directory: {e}")
+                    iteration_dir = None
+            
             if iteration == 1:
                 # First iteration with initial requirements
                 logger.info("\n🔍 ITERATION TYPE: Initial code generation")
@@ -84,6 +111,15 @@ async def analyze(url: str = Form(...), prompt: str = Form(...)):
                 )
             
             last_code = code
+            
+            # Save the generated script
+            if iteration_dir:
+                try:
+                    script_file = iteration_dir / "script.py"
+                    script_file.write_text(code)
+                    logger.info(f"Saved script to {script_file}")
+                except Exception as e:
+                    logger.warning(f"Failed to save script: {e}")
             
             # Execute the generated code
             logger.info("\n⚙️ EXECUTING generated Python script...")

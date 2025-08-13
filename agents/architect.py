@@ -1,13 +1,13 @@
 import os
 import logging
 import asyncio
-import json
 import time
 from pathlib import Path
 from typing import Dict, Any, List
 import openai
 import yaml
 import pandas as pd
+from .models import ArchitectPlanResponse, ArchitectValidationResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class ArchitectAgent:
         if config_path.exists():
             with open(config_path, 'r') as f:
                 config = yaml.safe_load(f)
-                return config.get('architect_model', 'gpt-4-turbo-preview')
-        return 'gpt-4-turbo-preview'
+                return config.get('architect_model', 'gpt-5')
+        return 'gpt-4o'
     
     async def profile_and_plan(self, data_path: Path, user_prompt: str) -> Dict[str, Any]:
         logger.info("\n" + "="*80)
@@ -43,18 +43,22 @@ class ArchitectAgent:
         
         prompt = self._load_prompt('architect_initial.txt')
         
-        system_message = """You are a data analysis architect. Your job is to:
+        system_message = """You are a data analysis architect and grader. Your job is to:
 1. Understand the dataset structure and content
 2. Create specific, actionable requirements for analysis
-3. Define clear acceptance criteria for the results
+3. Define up to 5 acceptance criteria focused on data insights and substance (not style)
+4. Explain the relative importance of each criterion
 
-Return your response as valid JSON with this structure:
-{
-    "requirements": "detailed requirements for the analysis",
-    "acceptance_criteria": ["criterion_1", "criterion_2", ...],
-    "is_complete": false,
-    "feedback": ""
-}"""
+Focus criteria on:
+- Key insights and conclusions drawn from the data
+- Statistical validity and correctness
+- Answering the user's core questions
+- Data-driven findings and patterns
+
+Avoid criteria about:
+- Formatting and styling
+- Minor presentation issues
+- Non-essential visualizations"""
 
         user_message = prompt.format(
             data_profile=data_profile,
@@ -72,7 +76,7 @@ User Request:
 {user_prompt}
 
 Create detailed requirements for a Python script that will analyze this data and produce an HTML report.
-Include specific visualizations, statistics, and insights that should be generated."""
+Focus on substantive insights and data-driven conclusions rather than stylistic elements."""
 
         for attempt in range(self.max_retries):
             try:
@@ -95,17 +99,17 @@ Include specific visualizations, statistics, and insights that should be generat
                 
                 start_time = time.time()
                 
-                response = await self.client.chat.completions.create(
+                response = await self.client.beta.chat.completions.parse(
                     model=self.model,
                     messages=messages,
                     temperature=0.3,
                     max_tokens=2000,
-                    response_format={"type": "json_object"}
+                    response_format=ArchitectPlanResponse
                 )
                 
                 elapsed_time = time.time() - start_time
                 
-                result = json.loads(response.choices[0].message.content)
+                parsed_result = response.choices[0].message.parsed
                 
                 logger.info(f"\n{'='*60}")
                 logger.info(f"✅ OpenAI -> ARCHITECT Response")
@@ -118,15 +122,8 @@ Include specific visualizations, statistics, and insights that should be generat
                     logger.info(f"  - Completion Tokens: {response.usage.completion_tokens}")
                     logger.info(f"  - Total Tokens: {response.usage.total_tokens}")
                 
-                # Ensure all required fields are present
-                if 'requirements' not in result:
-                    result['requirements'] = "Perform exploratory data analysis with visualizations"
-                if 'acceptance_criteria' not in result:
-                    result['acceptance_criteria'] = ["HTML output generated", "At least one visualization created"]
-                if 'is_complete' not in result:
-                    result['is_complete'] = False
-                if 'feedback' not in result:
-                    result['feedback'] = ""
+                # Convert Pydantic model to dict for compatibility
+                result = parsed_result.model_dump()
                 
                 logger.info(f"\n--- ARCHITECT'S ANALYSIS PLAN ---")
                 logger.info(f"\nREQUIREMENTS:")
@@ -138,6 +135,11 @@ Include specific visualizations, statistics, and insights that should be generat
                 logger.info("-" * 40)
                 for i, criterion in enumerate(result['acceptance_criteria'], 1):
                     logger.info(f"  {i}. {criterion}")
+                logger.info("-" * 40)
+                
+                logger.info(f"\nCRITERIA IMPORTANCE:")
+                logger.info("-" * 40)
+                logger.info(result.get('criteria_importance', 'Not specified'))
                 logger.info("-" * 40)
                 
                 logger.info(f"\nARCHITECT DECISION: Plan established successfully")
@@ -175,14 +177,22 @@ Include specific visualizations, statistics, and insights that should be generat
         
         prompt = self._load_prompt('architect_feedback.txt')
         
-        system_message = """You are validating analysis results against acceptance criteria.
-Check if the HTML output meets all criteria and provide specific feedback if not.
+        system_message = """You are grading an analysis report against acceptance criteria.
 
-Return your response as valid JSON with this structure:
-{
-    "is_complete": boolean,
-    "feedback": "specific feedback on what needs to be fixed or improved"
-}"""
+Your tasks:
+1. Evaluate how well each acceptance criterion was met
+2. Assign a holistic letter grade (A+, A, A-, B+, B, B-, C+, C, C-, D, F)
+3. The report passes if it achieves B- or higher
+4. Provide specific feedback for improvement
+
+Grading guidelines:
+- A range: Exceptional work, all criteria met excellently, deep insights
+- B range: Good work, most important criteria met well, solid analysis
+- C range: Adequate work, basic criteria met but missing depth
+- D: Poor work, critical criteria not met
+- F: Failing, fundamental requirements not met
+
+Remember: Some criteria may be critical enough that failing them means failing overall."""
 
         # Truncate HTML if too long
         if len(html_output) > 10000:
@@ -205,7 +215,7 @@ Acceptance Criteria:
 HTML Output (may be truncated):
 {html_summary}
 
-Does the output meet all criteria? If not, what specifically needs to be fixed?"""
+Grade the output holistically. What grade does it deserve and why? What needs improvement?"""
 
         for attempt in range(self.max_retries):
             try:
@@ -227,17 +237,17 @@ Does the output meet all criteria? If not, what specifically needs to be fixed?"
                 
                 start_time = time.time()
                 
-                response = await self.client.chat.completions.create(
+                response = await self.client.beta.chat.completions.parse(
                     model=self.model,
                     messages=messages,
                     temperature=0.3,
                     max_tokens=1000,
-                    response_format={"type": "json_object"}
+                    response_format=ArchitectValidationResponse
                 )
                 
                 elapsed_time = time.time() - start_time
                 
-                result = json.loads(response.choices[0].message.content)
+                parsed_result = response.choices[0].message.parsed
                 
                 logger.info(f"\n{'='*60}")
                 logger.info(f"✅ OpenAI -> ARCHITECT Validation Response")
@@ -250,26 +260,31 @@ Does the output meet all criteria? If not, what specifically needs to be fixed?"
                     logger.info(f"  - Completion Tokens: {response.usage.completion_tokens}")
                     logger.info(f"  - Total Tokens: {response.usage.total_tokens}")
                 
-                # Ensure required fields
-                if 'is_complete' not in result:
-                    result['is_complete'] = False
-                if 'feedback' not in result:
-                    result['feedback'] = "Unable to determine if criteria are met"
+                # Convert Pydantic model to dict for compatibility
+                result = parsed_result.model_dump()
                 
-                logger.info(f"\n--- VALIDATION JUDGMENT ---")
+                logger.info(f"\n--- GRADING RESULTS ---")
                 logger.info("=" * 40)
+                logger.info(f"GRADE: {result['grade']}")
+                logger.info(f"\nCRITERIA EVALUATION:")
+                logger.info("-" * 40)
+                logger.info(result.get('criteria_evaluation', 'Not specified'))
+                logger.info("-" * 40)
+                logger.info(f"\nGRADE JUSTIFICATION:")
+                logger.info("-" * 40)
+                logger.info(result.get('grade_justification', 'Not specified'))
+                logger.info("-" * 40)
+                
                 if result['is_complete']:
-                    logger.info("✅ VERDICT: ALL CRITERIA MET")
-                    logger.info("ARCHITECT DECISION: The analysis successfully meets all acceptance criteria.")
-                    logger.info("ARCHITECT THINKING: The generated code has produced satisfactory results.")
+                    logger.info(f"\n✅ VERDICT: PASSING GRADE ({result['grade']})")
+                    logger.info("ARCHITECT DECISION: The analysis meets standards (B- or higher).")
                 else:
-                    logger.info("❌ VERDICT: CRITERIA NOT MET")
-                    logger.info("ARCHITECT DECISION: The analysis needs revision.")
-                    logger.info(f"\nARCHITECT FEEDBACK:")
+                    logger.info(f"\n❌ VERDICT: FAILING GRADE ({result['grade']})")
+                    logger.info("ARCHITECT DECISION: The analysis needs improvement.")
+                    logger.info(f"\nIMPROVEMENT FEEDBACK:")
                     logger.info("-" * 40)
                     logger.info(result['feedback'])
                     logger.info("-" * 40)
-                    logger.info("ARCHITECT THINKING: Will request code revision to address these issues.")
                 logger.info("=" * 40)
                 
                 return result

@@ -21,8 +21,8 @@ class CoderAgent:
         if config_path.exists():
             with open(config_path, 'r') as f:
                 config = yaml.safe_load(f)
-                return config.get('coder_model', 'gpt-4-turbo-preview')
-        return 'gpt-4-turbo-preview'
+                return config.get('coder_model', 'gpt-5')
+        return 'gpt-5'
     
     async def generate_code(self, requirements: str, data_path: Path) -> str:
         logger.info("\n" + "="*80)

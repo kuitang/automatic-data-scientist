@@ -38,6 +38,7 @@ class TestArchitectAgent:
                 "Create at least one chart",
                 "Output valid HTML"
             ],
+            "criteria_importance": "Statistics are critical for understanding data. Charts provide visual insights. HTML output is required for delivery.",
             "is_complete": False,
             "feedback": ""
         })
@@ -68,6 +69,9 @@ class TestArchitectAgent:
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = json.dumps({
+            "criteria_evaluation": "All criteria met successfully",
+            "grade": "B+",
+            "grade_justification": "Good analysis with solid insights",
             "is_complete": True,
             "feedback": ""
         })
