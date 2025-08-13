@@ -6,13 +6,15 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
+from limits import EXECUTION_TIMEOUT, MEMORY_LIMIT
+
 logger = logging.getLogger(__name__)
 
 class PythonExecutor:
     def __init__(self, work_dir: Path):
         self.work_dir = work_dir
-        self.timeout = 30  # 30 seconds
-        self.memory_limit = 2 * 1024 * 1024 * 1024  # 2GB in bytes
+        self.timeout = EXECUTION_TIMEOUT
+        self.memory_limit = MEMORY_LIMIT
         
     async def execute(self, code: str, data_path: Path) -> Dict[str, Any]:
         # Save code to a temporary file

@@ -14,6 +14,7 @@ import asyncio
 from agents.architect import ArchitectAgent
 from agents.coder import CoderAgent
 from executor import PythonExecutor
+from limits import MAX_FILE_SIZE, MAX_ITERATIONS, TOTAL_REQUEST_TIMEOUT
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,10 +26,7 @@ if not os.getenv("OPENAI_API_KEY"):
 
 app = FastAPI(title="Automatic Data Scientist MVP")
 
-MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
 ALLOWED_EXTENSIONS = {'.csv', '.xlsx', '.xls', '.json', '.parquet'}
-MAX_ITERATIONS = int(os.getenv("MAX_ITERATIONS", "3"))  # Configurable, default 3
-TOTAL_TIMEOUT = 300  # 5 minutes
 
 
 @app.post("/analyze")

@@ -19,6 +19,13 @@ Structure the HTML output with:
 - Tables formatted nicely with borders and padding
 - Clear labels and descriptions for all results
 
+Image Guidelines:
+- Keep all generated images small and low resolution to minimize file size
+- Use figure sizes no larger than (8, 6) inches
+- Set DPI to 72 or 80 for web display (not print quality)
+- Use efficient formats (prefer SVG for line plots, compressed PNG for complex plots)
+- Reduce marker sizes and line widths appropriately for small images
+
 Do not:
 - Write any files to disk (except matplotlib temp files)
 - Make any network requests

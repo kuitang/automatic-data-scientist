@@ -6,6 +6,10 @@ from typing import Optional
 import openai
 import yaml
 import time
+from limits import (
+    MAX_RETRIES,
+    CODER_MAX_TOKENS
+)
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +17,7 @@ class CoderAgent:
     def __init__(self):
         self.client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = self._load_model_config()
-        self.max_retries = 3
+        self.max_retries = MAX_RETRIES
         self.base_delay = 1
         
     def _load_model_config(self) -> str:
@@ -23,6 +27,7 @@ class CoderAgent:
                 config = yaml.safe_load(f)
                 return config.get('coder_model', 'gpt-5')
         return 'gpt-5'
+    
     
     async def generate_code(self, requirements: str, data_path: Path) -> str:
         logger.info("\n" + "="*80)
@@ -65,6 +70,7 @@ The script should:
 - Use base64 encoding or SVG for all charts
 - Include proper styling and formatting"""
 
+        
         for attempt in range(self.max_retries):
             try:
                 messages = [
@@ -76,8 +82,7 @@ The script should:
                 logger.info(f"💻 CODER -> OpenAI API Call (Attempt {attempt + 1}/{self.max_retries})")
                 logger.info(f"{'='*60}")
                 logger.info(f"Model: {self.model}")
-                logger.info(f"Temperature: 0.3")
-                logger.info(f"Max Tokens: 4000")
+                logger.info(f"Max Tokens: {CODER_MAX_TOKENS}")
                 logger.info(f"\n--- SYSTEM MESSAGE ---")
                 logger.info(system_message)
                 logger.info(f"\n--- USER MESSAGE (first 1000 chars) ---")
@@ -88,8 +93,7 @@ The script should:
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    temperature=0.3,
-                    max_tokens=4000
+                    max_completion_tokens=CODER_MAX_TOKENS
                 )
                 
                 elapsed_time = time.time() - start_time
@@ -170,6 +174,7 @@ Feedback/Errors to Fix:
 
 Generate the complete fixed script."""
 
+        
         for attempt in range(self.max_retries):
             try:
                 messages = [
@@ -181,8 +186,7 @@ Generate the complete fixed script."""
                 logger.info(f"🔄 CODER -> OpenAI Revision Call (Attempt {attempt + 1}/{self.max_retries})")
                 logger.info(f"{'='*60}")
                 logger.info(f"Model: {self.model}")
-                logger.info(f"Temperature: 0.3")
-                logger.info(f"Max Tokens: 4000")
+                logger.info(f"Max Tokens: {CODER_MAX_TOKENS}")
                 logger.info(f"\n--- REVISION SYSTEM MESSAGE ---")
                 logger.info(system_message)
                 logger.info(f"\n--- REVISION USER MESSAGE (first 1500 chars) ---")
@@ -193,8 +197,7 @@ Generate the complete fixed script."""
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    temperature=0.3,
-                    max_tokens=4000
+                    max_completion_tokens=CODER_MAX_TOKENS
                 )
                 
                 elapsed_time = time.time() - start_time

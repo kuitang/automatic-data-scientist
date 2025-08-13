@@ -14,5 +14,6 @@ Generate the complete FIXED Python script that addresses all the feedback while 
 2. Maintain the same overall structure and approach
 3. Keep all the working parts of the previous code
 4. Ensure the script still meets all original requirements
+5. Keep images small and low resolution (figure size ≤ (8,6), DPI ≤ 80)
 
 Generate the complete, executable Python script with all fixes applied.

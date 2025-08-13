@@ -8,14 +8,26 @@ import openai
 import yaml
 import pandas as pd
 from .models import ArchitectPlanResponse, ArchitectValidationResponse
+from limits import (
+    MAX_RETRIES,
+    ARCHITECT_INITIAL_MAX_TOKENS,
+    ARCHITECT_VALIDATION_MAX_TOKENS,
+    MAX_NUMERIC_COLUMNS_TO_PROFILE,
+    MAX_OBJECT_COLUMNS_TO_PROFILE
+)
 
 logger = logging.getLogger(__name__)
+
+# HTML truncation constants (kept for output validation, not API messages)
+HTML_TRUNCATION_THRESHOLD = 10000  # Length above which HTML is truncated
+HTML_PREFIX_LENGTH = 5000  # Characters to keep from the beginning
+HTML_SUFFIX_LENGTH = 2000  # Characters to keep from the end
 
 class ArchitectAgent:
     def __init__(self):
         self.client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = self._load_model_config()
-        self.max_retries = 3
+        self.max_retries = MAX_RETRIES
         self.base_delay = 1
         
     def _load_model_config(self) -> str:
@@ -25,6 +37,7 @@ class ArchitectAgent:
                 config = yaml.safe_load(f)
                 return config.get('architect_model', 'gpt-5')
         return 'gpt-4o'
+    
     
     async def profile_and_plan(self, data_path: Path, user_prompt: str) -> Dict[str, Any]:
         logger.info("\n" + "="*80)
@@ -78,6 +91,7 @@ User Request:
 Create detailed requirements for a Python script that will analyze this data and produce an HTML report.
 Focus on substantive insights and data-driven conclusions rather than stylistic elements."""
 
+        
         for attempt in range(self.max_retries):
             try:
                 messages = [
@@ -89,8 +103,7 @@ Focus on substantive insights and data-driven conclusions rather than stylistic 
                 logger.info(f"🤖 ARCHITECT -> OpenAI API Call (Attempt {attempt + 1}/{self.max_retries})")
                 logger.info(f"{'='*60}")
                 logger.info(f"Model: {self.model}")
-                logger.info(f"Temperature: 0.3")
-                logger.info(f"Max Tokens: 2000")
+                logger.info(f"Max Tokens: {ARCHITECT_INITIAL_MAX_TOKENS}")
                 logger.info(f"Response Format: JSON Object")
                 logger.info(f"\n--- SYSTEM MESSAGE ---")
                 logger.info(system_message)
@@ -102,8 +115,7 @@ Focus on substantive insights and data-driven conclusions rather than stylistic 
                 response = await self.client.beta.chat.completions.parse(
                     model=self.model,
                     messages=messages,
-                    temperature=0.3,
-                    max_tokens=2000,
+                    max_completion_tokens=ARCHITECT_INITIAL_MAX_TOKENS,
                     response_format=ArchitectPlanResponse
                 )
                 
@@ -195,8 +207,8 @@ Grading guidelines:
 Remember: Some criteria may be critical enough that failing them means failing overall."""
 
         # Truncate HTML if too long
-        if len(html_output) > 10000:
-            html_summary = html_output[:5000] + "\n... [truncated] ...\n" + html_output[-2000:]
+        if len(html_output) > HTML_TRUNCATION_THRESHOLD:
+            html_summary = html_output[:HTML_PREFIX_LENGTH] + "\n... [truncated] ...\n" + html_output[-HTML_SUFFIX_LENGTH:]
         else:
             html_summary = html_output
 
@@ -217,6 +229,7 @@ HTML Output (may be truncated):
 
 Grade the output holistically. What grade does it deserve and why? What needs improvement?"""
 
+        
         for attempt in range(self.max_retries):
             try:
                 messages = [
@@ -228,8 +241,7 @@ Grade the output holistically. What grade does it deserve and why? What needs im
                 logger.info(f"🤖 ARCHITECT -> OpenAI Validation Call (Attempt {attempt + 1}/{self.max_retries})")
                 logger.info(f"{'='*60}")
                 logger.info(f"Model: {self.model}")
-                logger.info(f"Temperature: 0.3")
-                logger.info(f"Max Tokens: 1000")
+                logger.info(f"Max Tokens: {ARCHITECT_VALIDATION_MAX_TOKENS}")
                 logger.info(f"\n--- VALIDATION SYSTEM MESSAGE ---")
                 logger.info(system_message)
                 logger.info(f"\n--- VALIDATION USER MESSAGE (first 1500 chars) ---")
@@ -240,8 +252,7 @@ Grade the output holistically. What grade does it deserve and why? What needs im
                 response = await self.client.beta.chat.completions.parse(
                     model=self.model,
                     messages=messages,
-                    temperature=0.3,
-                    max_tokens=1000,
+                    max_completion_tokens=ARCHITECT_VALIDATION_MAX_TOKENS,
                     response_format=ArchitectValidationResponse
                 )
                 
@@ -335,14 +346,14 @@ Grade the output holistically. What grade does it deserve and why? What needs im
             numeric_cols = df.select_dtypes(include=['number']).columns
             if len(numeric_cols) > 0:
                 profile.append("  Numeric columns:")
-                for col in numeric_cols[:10]:  # Limit to first 10
+                for col in numeric_cols[:MAX_NUMERIC_COLUMNS_TO_PROFILE]:
                     profile.append(f"    - {col}: min={df[col].min():.2f}, max={df[col].max():.2f}, mean={df[col].mean():.2f}")
             
             # Categorical columns
             object_cols = df.select_dtypes(include=['object']).columns
             if len(object_cols) > 0:
                 profile.append("  Categorical columns:")
-                for col in object_cols[:10]:  # Limit to first 10
+                for col in object_cols[:MAX_OBJECT_COLUMNS_TO_PROFILE]:
                     n_unique = df[col].nunique()
                     profile.append(f"    - {col}: {n_unique} unique values")
                     if n_unique <= 10:

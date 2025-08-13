@@ -65,6 +65,9 @@ demo_*.py
 # User-specific files
 CLAUDE.md
 
+# Artifacts directory
+artifacts/
+
 # OpenAI API Key - NEVER commit this
 openai_key.txt
 api_key.txt
